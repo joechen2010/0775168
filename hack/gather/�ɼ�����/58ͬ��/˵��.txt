@@ -1,0 +1,4 @@
+这样采集后，如果电话在前台显示，需要添加：
+if(strpos($rsdb[telephone], ".gif")){
+	$rsdb[telephone]="<img src=\"$webdb[www_url]/$webdb[updir]/$rsdb[telephone]\" height='24'/>";
+} 

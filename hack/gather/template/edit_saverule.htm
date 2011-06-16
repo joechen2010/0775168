@@ -1,0 +1,201 @@
+<!--
+<?php
+print <<<EOT
+-->
+
+<table width='100%' cellspacing='1' cellpadding='3' class="tablewidth"  id="top_menu">
+  <tr>
+    <td>[<a href="index.php?lfj=gather&job=list">采集规则列表</a>] [<a href="index.php?lfj=gather&job=add_title">手工添加新规则</a>] 
+      [<a href="index.php?lfj=gather&job=addrulesql">导入新规则</a>] [<a href="http://www.LaneLead.com" target="_blank">下载新规则</a>] 
+      [<a href="index.php?lfj=gather&job=edit_title&id=$id">修改标题参数</a>] [<a href="index.php?lfj=gather&job=edit_content&id=$id">修改内容参数</a>] [<a href="index.php?lfj=gather&job=edit_saverule&id=$id">修改入库参数</a>]</td>
+  </tr>
+</table>
+<form name="form_zone" method="post" action="" target="iframe_zone" id="form_zone">
+</form>
+<iframe width=0 height=0 id="iframe_zone" name="iframe_zone"></iframe>
+<iframe width=0 height=0 id="iframe_street" name="iframe_street"></iframe>
+<form name="form2" method="post" action="" target="fidiframe">
+</form>
+<iframe id="fidiframe" name="fidiframe" width=0 height=0></iframe>
+<table width='100%' cellspacing='1' cellpadding='3' class="tablewidth">
+  <form name="form1" method="post" action="index.php?lfj=$lfj&action=$job&id=$id">
+    <tr  class="head">
+      <td colspan="2">&gt;&gt;入库采集参数设置
+        <SCRIPT LANGUAGE="JavaScript">
+<!--
+function autosub(){
+	document.form1.testgather.value=1;
+	document.form1.submit();
+}
+
+function choose(va){
+	document.form2.action="index.php?lfj=$lfj&job=showfid&fid=$save_rule[fid]&fixsystem="+va;
+	document.form2.submit();
+}
+function showdiv(va){
+	fiddiv.innerHTML=va;
+}
+//-->
+</SCRIPT></td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">采集入库模块</td>
+      <td>
+        <input type="radio" name="fixsystem" value="$fixsystem" onclick="choose('$fixsystem');" disabled="disabled">
+        {$Marray[$fixsystem][name]} <span style="color:red;">注意：请确认你的入库模块，如需修改，请到 <a href="index.php?lfj=$lfj&job=edit_content&id=$id">修改内容参数</a> 界面进行修改</span>
+        <SCRIPT LANGUAGE="JavaScript">
+<!--
+choose('$fixsystem');
+//-->
+</SCRIPT>
+
+      </td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">入库栏目选择</td>
+      <td><div id="fiddiv">请选择上面的分类</div>
+        $msg</td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">请选择导入那个城市</td>
+      <td>
+  $Temp_city_fid <span id="showzone"></span><span id="showstreet"></span>
+        <SCRIPT LANGUAGE="JavaScript">
+<!--
+function choose_where(t,fup,fid,delstreet,typeid){
+	if(t=='getzone'){
+		url="index.php?lfj=$lfj&job=getzone&fup="+fup+"&fid="+fid+"&delstreet="+delstreet+"&typeid="+ typeid;
+		target='iframe_zone';
+	}else{
+		url="index.php?lfj=$lfj&job=getstreet&fup="+fup+"&fid="+fid+"&typeid="+ typeid;
+		target='iframe_street';
+	}
+	document.getElementById("form_zone").action=url;
+	document.getElementById("form_zone").target=target;
+	document.getElementById("form_zone").submit();
+}
+choose_where("getzone","$save_rule[city_id]","$save_rule[zone_id]",'','');
+choose_where("getstreet","$save_rule[zone_id]","$save_rule[street_id]",'','');
+//-->
+</SCRIPT> 
+    
+      </td>
+    </tr>
+    <tr>
+      <td width="15%" align="center"><font color="red">文件本地化设置</font></td>
+      <td><input type="checkbox" name="save_rule[getfile]" value="1" {$save_getfiledb[$save_rule[getfile]]}>
+        是否把文件/图片采集回来(极影响采集速度,极占用磁盘空间)</td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">文件存放目录设置</td>
+      <td><input type="text" name="save_rule[file_dir]" value="{$save_rule[file_dir]}">
+        文件本地化后存放在附件里的哪个目录
+        (最好留空)</td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">以哪个用户名发表</td>
+      <td><input type="text" name="save_rule[saveuname]" value="{$save_rule[saveuname]}">
+        (请准确填写用户名,默认为登陆用户)
+      </td>
+    </tr>
+    <tr>
+      <td width="15%" align="center"><font color="red">是否允许定时自动采集</font></td>
+      <td><input type="checkbox" name="ifauto" value="1" {$ifautodb[$ifauto]}>
+        是否允许定时自动采集（允许后可以实现后台无人值守定时自动采集）</td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">其他设置</td>
+      <td><input type="checkbox" name="save_rule[ifReverse]" value="1" {$ifReversedb[$save_rule[ifReverse]]}>
+        是否倒序采集 (与原网站顺序相反) &nbsp; 采集数量限制:
+        <input type="text" name="save_rule[limitNum]" value="$save_rule[limitNum]" size="5" onblur="JavaScript:if(!isFinite(this.value) || parseInt(this.value)<0) {this.select();this.focus();alert('只能输入数字！');}">
+        (采集几篇后停止,0为不限制)</td>
+    </tr>
+    <tr>
+      <td width="15%" align="center">采集内容过滤设置<br />
+        <br />
+        <a href="javascript:" onClick="CheckAll('all')">全选</a>/<a href="javascript:" onClick='CheckAll()'>反选</a> </td>
+      <td><input type="checkbox" name="save_rule[filter_iframe]" value="1" {$filter_iframedb[$save_rule[filter_iframe]]}>
+        Iframe &nbsp;
+        <input type="checkbox" name="save_rule[filter_object]" value="1" {$filter_objectdb[$save_rule[filter_object]]}>
+        Object &nbsp;
+        <input type="checkbox" name="save_rule[filter_script]" value="1" {$filter_scriptdb[$save_rule[filter_script]]}>
+        Script ： 过滤iframe、Object、js、vbs等脚本(建议过滤) <br />
+        <input type="checkbox" name="save_rule[filter_div]" value="1" {$filter_divdb[$save_rule[filter_div]]}>
+        Div  &nbsp;
+        <input type="checkbox" name="save_rule[filter_span]" value="1" {$filter_spandb[$save_rule[filter_span]]}>
+        Span ： 过滤div、span 标记(建议过滤，可以使代码更简洁) <br />
+        <input type="checkbox" name="save_rule[filter_displaynone]" value="1" {$filter_displaynonedb[$save_rule[filter_displaynone]]}>
+        displaynone： 过滤隐藏元素(标签不可见，属性为 display：none ，建议过滤) <br />
+        <input type="checkbox" name="save_rule[filter_style]" value="1" {$filter_styledb[$save_rule[filter_style]]}>
+        Style： 过滤自定义样式(形如&lt;style&gt;内容&lt;/style&gt;)    &nbsp;
+        <input type="checkbox" name="save_rule[filter_font]" value="1" {$filter_fontdb[$save_rule[filter_font]]}>
+        FONT： 过滤字体样式 (可以保留)<br />
+        <input type="checkbox" name="save_rule[filter_tablestyle]" value="1" {$filter_tablestyledb[$save_rule[filter_tablestyle]]}>
+        style、align、cellpadding、cellspacing、border、bordercolor、bgcolor、background：过滤常见表格样式属性(可以过滤，可使代码更简洁，不过需要自己定义表格显示css样式）<br />
+        <input type="checkbox" name="save_rule[filter_table]" value="1" {$filter_tabledb[$save_rule[filter_table]]}>
+        Table、tr、td： 过滤table属性(建议不过滤)    &nbsp;
+        <input type="checkbox" name="save_rule[filter_img]" value="1" {$filter_imgdb[$save_rule[filter_img]]}>
+        Img： 过滤图片(建议不过滤) <br />
+        <input type="checkbox" name="save_rule[filter_strong]" value="1" {$filter_strongdb[$save_rule[filter_strong]]}>
+        Strong、b： 过滤着重号 strong、b 标记(建议不过滤，一般与seo有关)   &nbsp; <br />
+        <input type="checkbox" name="save_rule[filter_a]" value="1" {$filter_adb[$save_rule[filter_a]]}>
+        A： 过滤超链接(字留下链接去掉)   &nbsp; <br />
+        <input type="checkbox" name="save_rule[filter_format]" value="1" {$filter_formatdb[$save_rule[filter_format]]}>
+        格式化代码： 过滤多余的p、br等html标签，自动匹配html标签(建议选择) <br />
+      </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td height="50"><input type="button" name="Submit" value="保存采集规则" onclick="post(0)">
+        &nbsp;
+        <input type="button" name="Submit2" value="测试采集" onclick="post(1)">
+        &nbsp;
+        <input type="submit" name="Submit" value="开始采集入库" onclick="post(3)">
+        <input type="hidden" name="testgather">
+        <input type="hidden" name="autogather">
+      </td>
+    </tr>
+  </form>
+</table>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function post(va){
+	if(va==1){
+		document.form1.target="_blank";
+	}else{
+		document.form1.target="";
+	}
+	if(va==3){
+		document.form1.autogather.value=va;
+	}else{
+		document.form1.testgather.value=va;
+	}	
+	document.form1.submit();
+}
+function CheckAll(va){
+	form=document.form1
+	for (var i=8;i<form.elements.length;i++){
+		var e = form.elements[i];
+		if(va=='all'){
+			e.checked = true;
+		}else{
+			e.checked == true ? e.checked = false : e.checked = true;
+		}
+	}
+}
+$autosub;
+//-->
+</SCRIPT>
+<!--
+EOT;
+?>
+-->
+<table width="100%" border="0" cellpadding="3" cellspacing="1" class="tablewidth">
+  <tr class="head" bgcolor="#FFFFFF">
+    <td colspan="2">帮助说明</td>
+  </tr>
+  <tr>
+    <td>1.自定义过滤规则请修改采集主程序<font color="#FF0000" title="点击即可实现复制" onClick="javascript:CopyText(this);">&nbsp;</font>。<br>
+      2.格式化代码可以使采集的内容非常简洁，不过需要在style文件中定义一下显示样式，比如：采集过来的table标签，会过滤掉 boder、bgcolor等属性，这时就应该统一定义table的css。</td>
+  </tr>
+</table>

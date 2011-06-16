@@ -1,0 +1,175 @@
+<!--
+<?php
+print <<<EOT
+-->
+
+<table width='100%' cellspacing='1' cellpadding='3' class="tablewidth"  id="top_menu">
+  <tr>
+    <td>[<a href="index.php?lfj=gather&job=list">采集规则列表</a>] [<a href="index.php?lfj=gather&job=add_title">手工添加新规则</a>] 
+      [<a href="index.php?lfj=gather&job=addrulesql">导入新规则</a>] [<a href="http://www.LaneLead.com" target="_blank">下载新规则</a>] 
+      [<a href="index.php?lfj=gather&job=edit_title&id=$id">修改标题参数</a>] [<a href="index.php?lfj=gather&job=edit_content&id=$id">修改内容参数</a>] [<a href="index.php?lfj=gather&job=edit_saverule&id=$id">修改入库参数</a>]</td>
+  </tr>
+</table>
+<form name="form_zone" method="post" action="" target="iframe_zone" id="form_zone">
+</form>
+<iframe width=0 height=0 id="iframe_zone" name="iframe_zone"></iframe>
+<iframe width=0 height=0 id="iframe_street" name="iframe_street"></iframe>
+<form name="form2" method="post" action="" target="fidiframe">
+</form>
+<iframe id="fidiframe" name="fidiframe" width=0 height=0></iframe>
+<table width='100%' cellspacing='1' cellpadding='3' class="tablewidth">
+  <form name="form1" method="post" action="index.php?lfj=$lfj&action=$job&id=$id" onsubmit="return cksub();">
+    <tr  class="head">
+      <td colspan="2">&nbsp;
+        <SCRIPT LANGUAGE="JavaScript">
+<!--
+function autosub(){
+	document.form1.testgather.value=1;
+	document.form1.submit();
+}
+
+function CheckAll(va){
+	form=document.form1
+	for (var i=0;i<form.elements.length;i++){
+		var e = form.elements[i];
+		if(va=='all'){
+			e.checked = true;
+		}else{
+			e.checked == true ? e.checked = false : e.checked = true;
+		}
+	}
+}
+function choose(va){
+	document.form2.action="index.php?lfj=$lfj&job=showfid&fid=$save_rule[fid]&fixsystem="+va;
+	document.form2.submit();
+}
+function showdiv(va){
+	fiddiv.innerHTML=va;
+}
+//-->
+</SCRIPT></td>
+    </tr>
+    <tr>
+      <td width="6%" align="center">序号</td>
+      <td align="center">&nbsp;</td>
+    </tr>
+    <!--
+EOT;
+$i=-1;
+foreach($urldb AS $key=>$rs){
+list($url,$title)=explode("\t",$rs);
+$i++;
+print <<<EOT
+-->
+    <tr bgcolor="#FFFFFF">
+      <td width="6%" align="center">$i</td>
+      <td><input type="checkbox" value="1" checked name="postdb[$i]">
+        <a href="$url" target="_blank"> $title </a>
+        <!--
+EOT;
+if($showurl){
+print <<<EOT
+-->
+        <br>
+        $url
+        <!--
+EOT;
+}
+print <<<EOT
+-->
+      </td>
+    </tr>
+    <!--
+EOT;
+}
+print <<<EOT
+-->
+    <tr align="center">
+      <td colspan="2"><input type="radio" name="fixsystem" value="$fixsystem" onclick="choose('$fixsystem');" checked="checked">
+        {$Marray[$fixsystem][name]} <span style="color:red;">注意：请确认你的入库模块，如需修改，请到 <a href="index.php?lfj=$lfj&job=edit_content&id=$id">修改内容参数</a> 界面进行修改 </span>
+        <SCRIPT LANGUAGE="JavaScript">
+<!--
+choose('$fixsystem');
+//-->
+</SCRIPT>
+      </td>
+    </tr>
+    <tr align="center" bgcolor="#FFFFFF">
+      <td colspan="2"><div id="fiddiv"><a href="index.php?lfj=gather&job=edit_content&id=$id"><span style="color:red; font-size:16px; font-weight:bold;">未添加内容采集规则，请先添加</span></a></div>
+        $msg</td>
+    </tr>
+    <tr align="center" bgcolor="#FFFFFF">
+      <td colspan="2">请选择导入那个城市：  $Temp_city_fid <span id="showzone"></span><span id="showstreet"></span>
+        <SCRIPT LANGUAGE="JavaScript">
+<!--
+function choose_where(t,fup,fid,delstreet,typeid){
+	if(t=='getzone'){
+		url="index.php?lfj=$lfj&job=getzone&fup="+fup+"&fid="+fid+"&delstreet="+delstreet+"&typeid="+ typeid;
+		target='iframe_zone';
+	}else{
+		url="index.php?lfj=$lfj&job=getstreet&fup="+fup+"&fid="+fid+"&typeid="+ typeid;
+		target='iframe_street';
+	}
+	document.getElementById("form_zone").action=url;
+	document.getElementById("form_zone").target=target;
+	document.getElementById("form_zone").submit();
+}
+choose_where("getzone","$save_rule[city_id]","$save_rule[zone_id]",'','');
+choose_where("getstreet","$save_rule[zone_id]","$save_rule[street_id]",'','');
+//-->
+</SCRIPT>
+      </td>
+    </tr>
+    <tr align="center" bgcolor="#FFFFFF">
+      <td colspan="2"><a href="javascript:" onClick="CheckAll('all')">全选</a>/<a href="javascript:" onClick='CheckAll()'>反选</a>
+        <input type="submit" name="Submit" value="开始采集入库" style="background:red;color:#FFF;">
+        <input type="hidden" name="testgather">
+        <br>
+        <input type="checkbox" name="getfile" value="1" {$save_getfiledb[$save_rule[getfile]]}>
+        是否把文件/图片采集回来(极影响采集速度,极占用磁盘空间)<br>
+        文件本地化后存放在附件里的哪个目录
+        <input type="text" name="file_dir" value="$file_dir">
+        (最好留空)<br>
+        以哪个用户名发表
+        <input type="text" name="username" value="$saveuname">
+      </td>
+    </tr>
+  </form>
+</table>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function cksub(){
+	var ischoose=0;
+	var ischooseId=0;
+	oo=document.body.getElementsByTagName("INPUT");
+	for(var i=0;i<oo.length;i++){
+		if(oo[i].getAttribute("name")=="fixsystem"){
+			if(oo[i].checked==true){
+				ischoose=1;
+			}
+		}
+	}
+	if(ischoose==0&&document.form1.testgather.value!=1){
+		alert("你没有选择一个栏目,采集的内容将不能入库");
+		return false;
+	}
+	oo=document.body.getElementsByTagName("INPUT");
+	for(var i=0;i<oo.length;i++){
+		if(oo[i].getAttribute("name").indexOf('postdb[')!=-1){
+			if(oo[i].checked==true){
+				ischooseId=1;
+			}
+		}
+	}
+	if(ischooseId==0){
+		alert("你没有选择一个标题,采集会失败");
+		return false;
+	}
+}
+$autosub;
+//-->
+</SCRIPT>
+<!--
+EOT;
+?>
+-->

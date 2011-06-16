@@ -1,0 +1,157 @@
+<?php
+unset($ModuleDB);
+
+			$ModuleDB['news_']=array('name'=>'资讯频道',
+				'dirname'=>'news',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'20',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['hy_']=array('name'=>'黄页店铺',
+				'dirname'=>'hy',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'16',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['fenlei_']=array('name'=>'分类系统',
+				'dirname'=>'f',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'36',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['shop_']=array('name'=>'商城系统',
+				'dirname'=>'shop',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'29',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['tuangou_']=array('name'=>'团购活动',
+				'dirname'=>'tg',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'28',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['shoptg_']=array('name'=>'官方团购',
+				'dirname'=>'shoptg',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'',
+				'adminmember'=>'',
+				'id'=>'37',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['hr_']=array('name'=>'人才招聘',
+				'dirname'=>'hr',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'31',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['gift_']=array('name'=>'礼品兑换',
+				'dirname'=>'gift',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'26',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['coupon_']=array('name'=>'优惠促销',
+				'dirname'=>'coupon',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'27',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['house_']=array('name'=>'房产频道',
+				'dirname'=>'house',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'a:7:{s:12:"list_PhpName";s:18:"list.php?&fid=$fid";s:12:"show_PhpName";s:29:"bencandy.php?&fid=$fid&id=$id";s:8:"MakeHtml";N;s:14:"list_HtmlName1";N;s:14:"show_HtmlName1";N;s:14:"list_HtmlName2";N;s:14:"show_HtmlName2";N;}',
+				'adminmember'=>'',
+				'id'=>'38',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['guestbook_']=array('name'=>'留言本',
+				'dirname'=>'guestbook',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'',
+				'adminmember'=>'',
+				'id'=>'18',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['form_']=array('name'=>'万能表单',
+				'dirname'=>'form',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'',
+				'adminmember'=>'',
+				'id'=>'21',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['vote_']=array('name'=>'投票系统',
+				'dirname'=>'vote',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'',
+				'adminmember'=>'',
+				'id'=>'23',
+				'ifclose'=>'0'
+			);
+			
+			$ModuleDB['ad_']=array('name'=>'广告系统',
+				'dirname'=>'a_d',
+				'domain'=>'',
+				'admindir'=>'',
+				'type'=>'2',
+				'config'=>'',
+				'adminmember'=>'',
+				'id'=>'24',
+				'ifclose'=>'0'
+			);
+			?>
